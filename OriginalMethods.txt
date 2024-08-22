@@ -1,0 +1,16 @@
+public void onNotificationPosted(StatusBarNotification sbn) {
+Log.i(TAG, sbn.getPackageName() + " Notification received:" + sbn.getNotification().tickerText);
+Notification postedNotification = sbn.getNotification();
+if (postedNotification.tickerText == null || sbn.isOngoing() || !sbn.isClearable() || isInBlackList(sbn)) {
+return;
+}
+if (mAppList.isInQuietHour(sbn.getPostTime())) {
+mNotificationPeek.unregisterEventListeners();
+return;
+}
+mNotificationHub.addNotification(sbn);
+if (AccessChecker.isDeviceAdminEnabled(this)) {
+mNotificationPeek.showNotification(sbn, false, mPeekTimeoutMultiplier, mSensorTimeoutMultiplier, mShowContent);
+}
+}
+
