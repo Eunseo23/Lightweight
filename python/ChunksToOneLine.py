@@ -188,16 +188,12 @@ def intersection_score(line_identifiers, target_identifiers):
     target_identifier_count = len(target_identifiers)
     return intersection_count / target_identifier_count if target_identifier_count != 0 else 0
 
-
-if __name__ == "__main__":
-    # 입력 파일 경로 설정
-    inputFilePathp = "C:/Users/UOS/Desktop/data/p_dir/NotificationService.java"
-    inputFilePathf = "C:/Users/UOS/Desktop/data/f_dir/NotificationService.java"
+def LightweightProcess(inputFilePathp, inputFilePathf):
+    # inputFilePathp = "C:/Users/UOS/Desktop/data/p_dir/NotificationService.java"
+    # inputFilePathf = "C:/Users/UOS/Desktop/data/f_dir/NotificationService.java"
 
     # Java 프로그램 실행 및 출력 가져오기
     original_lines, revised_lines = run_java_program(inputFilePathp, inputFilePathf)
-    # print(original_lines)
-    # print(revised_lines)
 
     if original_lines is not None and revised_lines is not None:
         # 파일 비교 및 병합
@@ -212,107 +208,167 @@ if __name__ == "__main__":
     df2 = list_to_dataframe(merged_file2)
 
     # java_code 컬럼에 대한 총 토큰 개수 계산
-total_tokens_df1 = calculate_total_tokens(df1, 'java_code')
-total_tokens_df2 = calculate_total_tokens(df2, 'java_code')
+    total_tokens_df1 = calculate_total_tokens(df1, 'java_code')
+    total_tokens_df2 = calculate_total_tokens(df2, 'java_code')
 
-different_indexes = compare_df_find_index(df1, df2)
+    if total_tokens_df1 < 512 and total_tokens_df2 < 512:
+        lwbm = ''.join(df1['java_code']).replace('\n', '')
+        lwfm = ''.join(df2['java_code']).replace('\n', '')
 
-total_tokens_diff_df1 = count_tokens_at_indexes(df1, different_indexes)
-total_tokens_diff_df2 = count_tokens_at_indexes(df2, different_indexes)
-total_bug_tokens = max(total_tokens_diff_df1, total_tokens_diff_df2)
+    else:
+        different_indexes = compare_df_find_index(df1, df2)
 
-#식별자 추출
-line_identifiers = []
-for index, row in df1.iterrows():
-    identifiers = extract_identifiers(row['java_code'])
-    line_identifiers.append(identifiers)
-df1['identifiers'] = pd.Series(line_identifiers)
+        total_tokens_diff_df1 = count_tokens_at_indexes(df1, different_indexes)
+        total_tokens_diff_df2 = count_tokens_at_indexes(df2, different_indexes)
+        total_bug_tokens = max(total_tokens_diff_df1, total_tokens_diff_df2)
 
-# 각 bug_line에 대해 거리 점수 계산
-dis_scores = {}
-for bug_line in different_indexes:
-    dis_scores[f'dis_score_{bug_line}'] = [calculate_dis_score(line_number, bug_line) for line_number in df1.index]
+        #식별자 추출
+        line_identifiers = []
+        for index, row in df1.iterrows():
+            identifiers = extract_identifiers(row['java_code'])
+            line_identifiers.append(identifiers)
+        df1['identifiers'] = pd.Series(line_identifiers)
 
-dis_scores_df = pd.DataFrame(dis_scores)
+        # 각 bug_line에 대해 거리 점수 계산
+        dis_scores = {}
+        for bug_line in different_indexes:
+            dis_scores[f'dis_score_{bug_line}'] = [calculate_dis_score(line_number, bug_line) for line_number in df1.index]
 
-int_scores = {}
-for target_index in different_indexes:
-    if target_index < len(line_identifiers):
-        # 현재 라인 식별자와 대상 라인 식별자의 교집합 점수를 계산
-        target_identifiers = line_identifiers[target_index]
-        scores = []
-        for idx, identifiers in enumerate(line_identifiers):
-            if idx == target_index:
-                scores.append(1)  # 동일한 인덱스의 식별자 세트는 점수 1
-            else:
-                score = intersection_score(identifiers, target_identifiers)
-                scores.append(score)
-        int_scores[f'int_scores_{target_index}'] = scores
+        dis_scores_df = pd.DataFrame(dis_scores)
 
-int_scores_df = pd.DataFrame(int_scores)
-df_combined = pd.concat([df1, int_scores_df, dis_scores_df], axis=1)
+        int_scores = {}
+        for target_index in different_indexes:
+            if target_index < len(line_identifiers):
+                # 현재 라인 식별자와 대상 라인 식별자의 교집합 점수를 계산
+                target_identifiers = line_identifiers[target_index]
+                scores = []
+                for idx, identifiers in enumerate(line_identifiers):
+                    if idx == target_index:
+                        scores.append(1)  # 동일한 인덱스의 식별자 세트는 점수 1
+                    else:
+                        score = intersection_score(identifiers, target_identifiers)
+                        scores.append(score)
+                int_scores[f'int_scores_{target_index}'] = scores
 
-sum_scores = {}
+        int_scores_df = pd.DataFrame(int_scores)
+        df_combined = pd.concat([df1, int_scores_df, dis_scores_df], axis=1)
 
-dis_keys = sorted(dis_scores.keys())
-int_keys = sorted(int_scores.keys())
+        sum_scores = {}
 
-a = 0.5
-# 가정: 동일한 위치의 키가 서로 매핑되어야 함
-for dis_key, int_key in zip(dis_keys, int_keys):
-    combined_scores = [a*x + (1-a)*y for x, y in zip(dis_scores[dis_key], int_scores[int_key])]
-    sum_scores[dis_key] = combined_scores
-list_length = len(sum_scores[dis_key])  # 모든 리스트는 같은 길이라고 가정
-total_scores1 = [0] * len(sum_scores[dis_key])
+        dis_keys = sorted(dis_scores.keys())
+        int_keys = sorted(int_scores.keys())
 
-# 각 키의 리스트를 total_scores에 더함
-for scores in sum_scores.values():
-    total_scores1 = [total + score for total, score in zip(total_scores1, scores)]
+        a = 0.5
+        # 가정: 동일한 위치의 키가 서로 매핑되어야 함
+        for dis_key, int_key in zip(dis_keys, int_keys):
+            combined_scores = [a*x + (1-a)*y for x, y in zip(dis_scores[dis_key], int_scores[int_key])]
+            sum_scores[dis_key] = combined_scores
+        list_length = len(sum_scores[dis_key])  # 모든 리스트는 같은 길이라고 가정
+        total_scores1 = [0] * len(sum_scores[dis_key])
 
-# sum_scores의 키의 개수
-num_keys = len(sum_scores)
+        # 각 키의 리스트를 total_scores에 더함
+        for scores in sum_scores.values():
+            total_scores1 = [total + score for total, score in zip(total_scores1, scores)]
 
-# 각 요소를 키의 개수로 나누기
-total_scores = [score / num_keys for score in total_scores1]
+        # sum_scores의 키의 개수
+        num_keys = len(sum_scores)
 
-df_combined['total_scores'] = total_scores
+        # 각 요소를 키의 개수로 나누기
+        total_scores = [score / num_keys for score in total_scores1]
 
-while True:
-  #가장 낮은 점수 확인 후 그 행 제거
-  min_total_score_index = df_combined['total_scores'].idxmin()
-  df_combined = df_combined.drop(min_total_score_index)
+        df_combined['total_scores'] = total_scores
 
-  #java line을 하나로 만들기
-  lwm = ''.join(df_combined['java_code'])
+        while True:
+        #가장 낮은 점수 확인 후 그 행 제거
+            min_total_score_index = df_combined['total_scores'].idxmin()
+            df_combined = df_combined.drop(min_total_score_index)
 
-  #lwm에 있는 토큰 개수 확인하는 코드
-  max_tokens = 0
-  token_counts = []
+            #java line을 하나로 만들기
+            lwm = ''.join(df_combined['java_code'])
 
-  tokens = tokenizer.tokenize(str(lwm))
-  if len(tokens) > max_tokens:
-      max_tokens = len(tokens)
-      token_counts.append(len(tokens))
-  # print("max: ", max_tokens)
+            #lwm에 있는 토큰 개수 확인하는 코드
+            max_tokens = 0
+            token_counts = []
 
-  if len(tokens) < (512-total_bug_tokens+total_tokens_diff_df1):
-    # print("max: ", len(tokens))
-    break
+            tokens = tokenizer.tokenize(str(lwm))
+            if len(tokens) > max_tokens:
+                max_tokens = len(tokens)
+                token_counts.append(len(tokens))
+            # print("max: ", max_tokens)
 
-# 현재 존재하는 인덱스 추출
-existing_indices = df_combined.index.tolist()
+            if len(tokens) < (512-total_bug_tokens+total_tokens_diff_df1):
+                # print("max: ", len(tokens))
+                break
 
-# df2에서 existing_indices에 해당하는 인덱스만 추출하여 새로운 데이터프레임 생성
-filtered_df2 = df2.loc[df2.index.isin(existing_indices)]
+        # 현재 존재하는 인덱스 추출
+        existing_indices = df_combined.index.tolist()
 
-# lightweight df에서 buggy line에 <bug>토큰 붙이기
-for index in different_indexes:
-    df_combined.at[index, 'java_code'] = f"<bug>{df_combined.at[index, 'java_code']}</bug>"
+        # df2에서 existing_indices에 해당하는 인덱스만 추출하여 새로운 데이터프레임 생성
+        filtered_df2 = df2.loc[df2.index.isin(existing_indices)]
 
-lwbm = ''.join(df_combined['java_code']).replace('\n', '')
-lwfm = ''.join(filtered_df2['java_code']).replace('\n', '')
-#추후 파일이름으로 저장될수있도록 하기
-with open('lwbm.txt', 'w', encoding='utf-8') as file:
-    file.write(lwbm)
-with open('lwfm.txt', 'w', encoding='utf-8') as file:
-    file.write(lwfm)
+        # lightweight df에서 buggy line에 <bug>토큰 붙이기
+        for index in different_indexes:
+            df_combined.at[index, 'java_code'] = f"<bug>{df_combined.at[index, 'java_code']}</bug>"
+
+        lwbm = ''.join(df_combined['java_code']).replace('\n', '')
+        lwfm = ''.join(filtered_df2['java_code']).replace('\n', '')
+
+    return lwbm, lwfm
+# #추후 파일이름으로 저장될수있도록 하기
+# with open('lwbm.txt', 'w', encoding='utf-8') as file:
+#     file.write(lwbm)
+# with open('lwfm.txt', 'w', encoding='utf-8') as file:
+#     file.write(lwfm)
+# Set the root directory where the files are located
+
+def get_related_fdir_path(f_dir_path):
+    """Convert an F_dir path to its corresponding P_dir path."""
+    return f_dir_path.replace("F_dir", "P_dir", 1)
+
+def save_comparison_result(file_name, lwbm, lwfm, lwresult_dir):
+    """Save the comparison result to files in the lwresult directory."""
+    # Create the output file paths
+    output_p_path = os.path.join(lwresult_dir, f"{file_name}_P.txt")
+    output_f_path = os.path.join(lwresult_dir, f"{file_name}_F.txt")
+    
+    # Save lwbm content to the corresponding _P.txt file
+    with open(output_p_path, 'w', encoding='utf-8') as file:
+        file.write(lwbm)
+    
+    # Save lwfm content to the corresponding _F.txt file
+    with open(output_f_path, 'w', encoding='utf-8') as file:
+        file.write(lwfm)
+    
+    print(f"Comparison results saved to {output_p_path} and {output_f_path}")
+
+def find_file_pairs_and_save(root_dir, lwresult_dir):
+    """Traverse directories, find file pairs, and save comparison results."""
+    for root, dirs, files in os.walk(root_dir):
+        for file_name in files:
+            full_path = os.path.join(root, file_name)
+            if "F_dir" in full_path:
+                # Compute the corresponding P_dir path
+                related_p_dir_path = get_related_fdir_path(full_path)
+                if os.path.exists(related_p_dir_path):
+                    # Generate lwbm and lwfm using the lightweight method
+                    lwbm, lwfm = LightweightProcess(related_p_dir_path, full_path)
+                    
+                    # Save the comparison result to lwresult directory
+                    save_comparison_result(file_name.split('.')[0], lwbm, lwfm, lwresult_dir)
+                else:
+                    print(f"No corresponding P_dir file found for: {full_path}")
+                    print(f"Expected P_dir path: {related_p_dir_path}")
+
+
+if __name__ == "__main__":
+    # Set the root directory where the files are located
+    root_directory = "C:\\Users\\UOS\\Desktop\\sciclone\\data10\\mtufano\\deepLearningMutants\\out\\bugfixes\\code\\"
+    
+    # Set the output directory for the comparison results
+    lwresult_directory = "C:\\Users\\UOS\\Desktop\\lwresult"
+    
+    # Ensure the lwresult directory exists
+    os.makedirs(lwresult_directory, exist_ok=True)
+    
+    # Find file pairs and save comparison results
+    find_file_pairs_and_save(root_directory, lwresult_directory)

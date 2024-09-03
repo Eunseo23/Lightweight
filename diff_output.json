@@ -1,9 +1,0 @@
-[ {
-  "type" : "CHANGE",
-  "position" : 1,
-  "lines" : [ "        Log.i(TAG, sbn.getPackageName() + \" Notification received:\" + sbn.getNotification().tickerText);", "        Notification postedNotification = sbn.getNotification()a;" ]
-}, {
-  "type" : "CHANGE",
-  "position" : 6,
-  "lines" : [ "        if (mAppList.isInQuietHour(sbn.getPostTime()))a {" ]
-} ]
