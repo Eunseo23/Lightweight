@@ -1,202 +1,336 @@
-package com.google.javascript.jscomp;
+package org.apache.commons.math3.fraction;
 
-import com.google.javascript.rhino.Node;
+import java.io.Serializable;
+import java.math.BigInteger;
+import org.apache.commons.math3.FieldElement;
+import org.apache.commons.math3.exception.util.LocalizedFormats;
+import org.apache.commons.math3.exception.MathArithmeticException;
+import org.apache.commons.math3.exception.NullArgumentException;
+import org.apache.commons.math3.util.ArithmeticUtils;
+import org.apache.commons.math3.util.FastMath;
 
-abstract class CodeConsumer {
+public class Fraction extends Number implements FieldElement<Fraction>, Comparable<Fraction>, Serializable {
 
-    boolean statementNeedsEnded = false;
+    public static final Fraction TWO = new Fraction(2, 1);
 
-    boolean statementStarted = false;
+    public static final Fraction ONE = new Fraction(1, 1);
 
-    boolean sawFunction = false;
+    public static final Fraction ZERO = new Fraction(0, 1);
 
-    void startSourceMapping(Node node) {
+    public static final Fraction FOUR_FIFTHS = new Fraction(4, 5);
+
+    public static final Fraction ONE_FIFTH = new Fraction(1, 5);
+
+    public static final Fraction ONE_HALF = new Fraction(1, 2);
+
+    public static final Fraction ONE_QUARTER = new Fraction(1, 4);
+
+    public static final Fraction ONE_THIRD = new Fraction(1, 3);
+
+    public static final Fraction THREE_FIFTHS = new Fraction(3, 5);
+
+    public static final Fraction THREE_QUARTERS = new Fraction(3, 4);
+
+    public static final Fraction TWO_FIFTHS = new Fraction(2, 5);
+
+    public static final Fraction TWO_QUARTERS = new Fraction(2, 4);
+
+    public static final Fraction TWO_THIRDS = new Fraction(2, 3);
+
+    public static final Fraction MINUS_ONE = new Fraction(-1, 1);
+
+    private static final long serialVersionUID = 3698073679419233275L;
+
+    private static final double DEFAULT_EPSILON = 1e-5;
+
+    private final int denominator;
+
+    private final int numerator;
+
+    public Fraction(double value) throws FractionConversionException {
+        this(value, DEFAULT_EPSILON, 100);
     }
 
-    void endSourceMapping(Node node) {
+    public Fraction(double value, double epsilon, int maxIterations) throws FractionConversionException {
+        this(value, epsilon, Integer.MAX_VALUE, maxIterations);
     }
 
-    boolean continueProcessing() {
-        return true;
+    public Fraction(double value, int maxDenominator) throws FractionConversionException {
+        this(value, 0, maxDenominator, 100);
     }
 
-    abstract char getLastChar();
-
-    void addIdentifier(String identifier) {
-        add(identifier);
-    }
-
-    abstract void append(String str);
-
-    void appendBlockStart() {
-        append("{");
-    }
-
-    void appendBlockEnd() {
-        append("}");
-    }
-
-    void startNewLine() {
-    }
-
-    void maybeLineBreak() {
-        maybeCutLine();
-    }
-
-    void maybeCutLine() {
-    }
-
-    void endLine() {
-    }
-
-    void notePreferredLineBreak() {
-    }
-
-    void beginBlock() {
-        if (statementNeedsEnded) {
-            append(";");
-            maybeLineBreak();
+    private Fraction(double value, double epsilon, int maxDenominator, int maxIterations) throws FractionConversionException {
+        long overflow = Integer.MAX_VALUE;
+        double r0 = value;
+        long a0 = (long) FastMath.floor(r0);
+        if (FastMath.abs(a0) > overflow) {
+            throw new FractionConversionException(value, a0, 1l);
         }
-        appendBlockStart();
-        endLine();
-        statementNeedsEnded = false;
-    }
-
-    void endBlock() {
-        endBlock(false);
-    }
-
-    void endBlock(boolean shouldEndLine) {
-        appendBlockEnd();
-        if (shouldEndLine) {
-            endLine();
-        }
-        statementNeedsEnded = false;
-    }
-
-    void listSeparator() {
-        add(",");
-        maybeLineBreak();
-    }
-
-    void endStatement() {
-        endStatement(false);
-    }
-
-    void endStatement(boolean needSemiColon) {
-        if (needSemiColon) {
-            append(";");
-            maybeLineBreak();
-            statementNeedsEnded = false;
-        } else if (statementStarted) {
-            statementNeedsEnded = true;
-        }
-    }
-
-    void maybeEndStatement() {
-        if (statementNeedsEnded) {
-            append(";");
-            maybeLineBreak();
-            endLine();
-            statementNeedsEnded = false;
-        }
-        statementStarted = true;
-    }
-
-    void endFunction() {
-        endFunction(false);
-    }
-
-    void endFunction(boolean statementContext) {
-        sawFunction = true;
-        if (statementContext) {
-            endLine();
-        }
-    }
-
-    void beginCaseBody() {
-        append(":");
-    }
-
-    void endCaseBody() {
-    }
-
-    void add(String newcode) {
-        maybeEndStatement();
-        if (newcode.length() == 0) {
+        if (FastMath.abs(a0 - value) < epsilon) {
+            this.numerator = (int) a0;
+            this.denominator = 1;
             return;
         }
-        char c = newcode.charAt(0);
-        if ((isWordChar(c) || c == '\\') && isWordChar(getLastChar())) {
-            append(" ");
-        } else if (c == '/' && getLastChar() == '/') {
-            append(" ");
-        }
-        append(newcode);
-    }
-
-    void appendOp(String op, boolean binOp) {
-        append(op);
-    }
-
-    void addOp(String op, boolean binOp) {
-        maybeEndStatement();
-        char first = op.charAt(0);
-        char prev = getLastChar();
-        if ((first == '+' || first == '-') && prev == first) {
-            append(" ");
-        } else if (Character.isLetter(first) && isWordChar(prev)) {
-            append(" ");
-        } else if (prev == '-' && first == '>') {
-            append(" ");
-        }
-        appendOp(op, binOp);
-        if (binOp) {
-            maybeCutLine();
-        }
-    }
-
-    void addNumber(double x) {
-        char prev = getLastChar();
-        if (x < 0 && prev == '-') {
-            add(" ");
-        }
-        if ((long) x == x && !isNegativeZero(x)) {
-            long value = (long) x;
-            long mantissa = value;
-            int exp = 0;
-            if (Math.abs(x) >= 100) {
-                while (mantissa / 10 * Math.pow(10, exp + 1) == value) {
-                    mantissa /= 10;
-                    exp++;
+        long p0 = 1;
+        long q0 = 0;
+        long p1 = a0;
+        long q1 = 1;
+        long p2 = 0;
+        long q2 = 1;
+        int n = 0;
+        boolean stop = false;
+        do {
+            ++n;
+            double r1 = 1.0 / (r0 - a0);
+            long a1 = (long) FastMath.floor(r1);
+            p2 = (a1 * p1) + p0;
+            q2 = (a1 * q1) + q0;
+            if ((FastMath.abs(p2) > overflow) || (FastMath.abs(q2) > overflow)) {
+                if (epsilon == 0.0 && FastMath.abs(q1) < maxDenominator) {
+                    break;
                 }
+                throw new FractionConversionException(value, p2, q2);
             }
-            if (exp > 2) {
-                add(Long.toString(mantissa) + "E" + Integer.toString(exp));
+            double convergent = (double) p2 / (double) q2;
+            if (n < maxIterations && FastMath.abs(convergent - value) > epsilon && q2 < maxDenominator) {
+                p0 = p1;
+                p1 = p2;
+                q0 = q1;
+                q1 = q2;
+                a0 = a1;
+                r0 = r1;
             } else {
-                add(Long.toString(value));
+                stop = true;
             }
+        } while (!stop);
+        if (n >= maxIterations) {
+            throw new FractionConversionException(value, maxIterations);
+        }
+        if (q2 < maxDenominator) {
+            this.numerator = (int) p2;
+            this.denominator = (int) q2;
         } else {
-            add(String.valueOf(x));
+            this.numerator = (int) p1;
+            this.denominator = (int) q1;
         }
     }
 
-    static boolean isNegativeZero(double x) {
-        return x == 0.0 && Math.copySign(1, x) == -1.0;
+    public Fraction(int num) {
+        this(num, 1);
     }
 
-    static boolean isWordChar(char ch) {
-        return (ch == '_' || ch == '$' || Character.isLetterOrDigit(ch));
+    public Fraction(int num, int den) {
+        if (den == 0) {
+            throw new MathArithmeticException(LocalizedFormats.ZERO_DENOMINATOR_IN_FRACTION, num, den);
+        }
+        if (den < 0) {
+            if (num == Integer.MIN_VALUE || den == Integer.MIN_VALUE) {
+                throw new MathArithmeticException(LocalizedFormats.OVERFLOW_IN_FRACTION, num, den);
+            }
+            num = -num;
+            den = -den;
+        }
+        final int d = ArithmeticUtils.gcd(num, den);
+        if (d > 1) {
+            num /= d;
+            den /= d;
+        }
+        if (den < 0) {
+            num = -num;
+            den = -den;
+        }
+        this.numerator = num;
+        this.denominator = den;
     }
 
-    boolean shouldPreserveExtraBlocks() {
+    public Fraction abs() {
+        Fraction ret;
+        if (numerator >= 0) {
+            ret = this;
+        } else {
+            ret = negate();
+        }
+        return ret;
+    }
+
+    public int compareTo(Fraction object) {
+        long nOd = ((long) numerator) * object.denominator;
+        long dOn = ((long) denominator) * object.numerator;
+        return (nOd < dOn) ? -1 : ((nOd > dOn) ? +1 : 0);
+    }
+
+    @Override
+    public double doubleValue() {
+        return (double) numerator / (double) denominator;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other instanceof Fraction) {
+            Fraction rhs = (Fraction) other;
+            return (numerator == rhs.numerator) && (denominator == rhs.denominator);
+        }
         return false;
     }
 
-    boolean breakAfterBlockFor(Node n, boolean statementContext) {
-        return statementContext;
+    @Override
+    public float floatValue() {
+        return (float) doubleValue();
     }
 
-    void endFile() {
+    public int getDenominator() {
+        return denominator;
+    }
+
+    public int getNumerator() {
+        return numerator;
+    }
+
+    @Override
+    public int hashCode() {
+        return 37 * (37 * 17 + numerator) + denominator;
+    }
+
+    @Override
+    public int intValue() {
+        return (int) doubleValue();
+    }
+
+    @Override
+    public long longValue() {
+        return (long) doubleValue();
+    }
+
+    public Fraction negate() {
+        if (numerator == Integer.MIN_VALUE) {
+            throw new MathArithmeticException(LocalizedFormats.OVERFLOW_IN_FRACTION, numerator, denominator);
+        }
+        return new Fraction(-numerator, denominator);
+    }
+
+    public Fraction reciprocal() {
+        return new Fraction(denominator, numerator);
+    }
+
+    public Fraction add(Fraction fraction) {
+        return addSub(fraction, true);
+    }
+
+    public Fraction add(final int i) {
+        return new Fraction(numerator + i * denominator, denominator);
+    }
+
+    public Fraction subtract(Fraction fraction) {
+        return addSub(fraction, false);
+    }
+
+    public Fraction subtract(final int i) {
+        return new Fraction(numerator - i * denominator, denominator);
+    }
+
+    private Fraction addSub(Fraction fraction, boolean isAdd) {
+        if (fraction == null) {
+            throw new NullArgumentException(LocalizedFormats.FRACTION);
+        }
+        if (numerator == 0) {
+            return isAdd ? fraction : fraction.negate();
+        }
+        if (fraction.numerator == 0) {
+            return this;
+        }
+        int d1 = ArithmeticUtils.gcd(denominator, fraction.denominator);
+        if (d1 == 1) {
+            int uvp = ArithmeticUtils.mulAndCheck(numerator, fraction.denominator);
+            int upv = ArithmeticUtils.mulAndCheck(fraction.numerator, denominator);
+            return new Fraction(isAdd ? ArithmeticUtils.addAndCheck(uvp, upv) : ArithmeticUtils.subAndCheck(uvp, upv), ArithmeticUtils.mulAndCheck(denominator, fraction.denominator));
+        }
+        BigInteger uvp = BigInteger.valueOf(numerator).multiply(BigInteger.valueOf(fraction.denominator / d1));
+        BigInteger upv = BigInteger.valueOf(fraction.numerator).multiply(BigInteger.valueOf(denominator / d1));
+        BigInteger t = isAdd ? uvp.add(upv) : uvp.subtract(upv);
+        int tmodd1 = t.mod(BigInteger.valueOf(d1)).intValue();
+        int d2 = (tmodd1 == 0) ? d1 : ArithmeticUtils.gcd(tmodd1, d1);
+        BigInteger w = t.divide(BigInteger.valueOf(d2));
+        if (w.bitLength() > 31) {
+            throw new MathArithmeticException(LocalizedFormats.NUMERATOR_OVERFLOW_AFTER_MULTIPLY, w);
+        }
+        return new Fraction(w.intValue(), ArithmeticUtils.mulAndCheck(denominator / d1, fraction.denominator / d2));
+    }
+
+    public Fraction multiply(Fraction fraction) {
+        if (fraction == null) {
+            throw new NullArgumentException(LocalizedFormats.FRACTION);
+        }
+        if (numerator == 0 || fraction.numerator == 0) {
+            return ZERO;
+        }
+        int d1 = ArithmeticUtils.gcd(numerator, fraction.denominator);
+        int d2 = ArithmeticUtils.gcd(fraction.numerator, denominator);
+        return getReducedFraction(ArithmeticUtils.mulAndCheck(numerator / d1, fraction.numerator / d2), ArithmeticUtils.mulAndCheck(denominator / d2, fraction.denominator / d1));
+    }
+
+    public Fraction multiply(final int i) {
+        return new Fraction(numerator * i, denominator);
+    }
+
+    public Fraction divide(Fraction fraction) {
+        if (fraction == null) {
+            throw new NullArgumentException(LocalizedFormats.FRACTION);
+        }
+        if (fraction.numerator == 0) {
+            throw new MathArithmeticException(LocalizedFormats.ZERO_FRACTION_TO_DIVIDE_BY, fraction.numerator, fraction.denominator);
+        }
+        return multiply(fraction.reciprocal());
+    }
+
+    public Fraction divide(final int i) {
+        return new Fraction(numerator, denominator * i);
+    }
+
+    public double percentageValue() {
+        return 100 * doubleValue();
+    }
+
+    public static Fraction getReducedFraction(int numerator, int denominator) {
+        if (denominator == 0) {
+            throw new MathArithmeticException(LocalizedFormats.ZERO_DENOMINATOR_IN_FRACTION, numerator, denominator);
+        }
+        if (numerator == 0) {
+            return ZERO;
+        }
+        if (denominator == Integer.MIN_VALUE && (numerator & 1) == 0) {
+            numerator /= 2;
+            denominator /= 2;
+        }
+        if (denominator < 0) {
+            if (numerator == Integer.MIN_VALUE || denominator == Integer.MIN_VALUE) {
+                throw new MathArithmeticException(LocalizedFormats.OVERFLOW_IN_FRACTION, numerator, denominator);
+            }
+            numerator = -numerator;
+            denominator = -denominator;
+        }
+        int gcd = ArithmeticUtils.gcd(numerator, denominator);
+        numerator /= gcd;
+        denominator /= gcd;
+        return new Fraction(numerator, denominator);
+    }
+
+    @Override
+    public String toString() {
+        String str = null;
+        if (denominator == 1) {
+            str = Integer.toString(numerator);
+        } else if (numerator == 0) {
+            str = "0";
+        } else {
+            str = numerator + " / " + denominator;
+        }
+        return str;
+    }
+
+    public FractionField getField() {
+        return FractionField.getInstance();
     }
 }

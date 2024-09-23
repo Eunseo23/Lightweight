@@ -28,7 +28,7 @@ import com.github.difflib.patch.Patch;
 //statement단위로 나누고, 주석제거!!!!!!!!!!
 public class LwOfDefects4j  {
     public static void main(String[] args) {
-        String inputFilePath = "C:\\Users\\UOS\\Desktop\\LwD4j\\Closure\\44\\CodeConsumer.java"; // 주석을 제거할 자바 파일이 있음
+        String inputFilePath = "C:\\Users\\UOS\\Desktop\\LwD4j\\Math\\1\\Fraction.java"; // 주석을 제거할 자바 파일이 있음
         String outputFilePath = "C:\\Users\\UOS\\Desktop\\Lightweight\\Test.java"; // input한 파일명 + buggy method.txt로 저장
         try {
             // 주석 제거

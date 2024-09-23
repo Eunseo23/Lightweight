@@ -1,10 +1,10 @@
-# 버기 청크 확인 후 original과revised 모두 청크를 한줄로 만들어 주는 코드
-# 결과물: OriginalMethods1.txt RevisedMethods1.txt
 import subprocess
 import os
 import pandas as pd
-import pandas as pd
 import re
+import json
+import time
+from tqdm import tqdm
 import tokenize
 from transformers import RobertaTokenizer
 
@@ -13,7 +13,7 @@ def run_java_program(input_file_path_p, input_file_path_f):
     java_class = "com.lightweight.OverallProcess1"
     
     # 필요한 모든 JAR 파일들을 포함한 클래스패스 설정
-    classpath = "C:/Users/UOS/Desktop/bug2fix/java/target/classes" + os.pathsep + "C:/Users/UOS/Desktop/bug2fix/java/target/dependency/*"
+    classpath = "/home/selab/Lightweight-main/java/target/classes" + os.pathsep + "/home/selab/Lightweight-main/java/target/dependency/*"
     
     # Java 프로그램 실행 명령어
     command = [
@@ -27,8 +27,8 @@ def run_java_program(input_file_path_p, input_file_path_f):
         result = subprocess.run(command, capture_output=True, text=True)
         
         # 실행 결과 출력
-        print("stdout:", result.stdout)
-        print("stderr:", result.stderr)
+        # print("stdout:", result.stdout)
+        # print("stderr:", result.stderr)
         
         # Java 프로그램 실행이 성공했는지 확인
         if result.returncode != 0:
@@ -104,6 +104,13 @@ def merge_adjacent_differences(file1_lines, file2_lines):
 
 def list_to_dataframe(lines):
     # 데이터프레임으로 변환
+    if not lines:
+        raise ValueError("The input list is empty.")
+    
+    # 모든 요소가 문자열인지 확인
+    if not all(isinstance(line, str) for line in lines):
+        raise ValueError("All elements in the input list must be strings.")
+    
     df = pd.DataFrame({
         'java_code': lines
     })
@@ -193,6 +200,8 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
     # inputFilePathf = "C:/Users/UOS/Desktop/data/f_dir/NotificationService.java"
 
     # Java 프로그램 실행 및 출력 가져오기
+    print(f"Processing P_dir: {inputFilePathp}")
+    print(f"Processing F_dir: {inputFilePathf}")
     original_lines, revised_lines = run_java_program(inputFilePathp, inputFilePathf)
 
     if original_lines is not None and revised_lines is not None:
@@ -201,23 +210,30 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
 
     else:
         print("Failed to run the Java program or no output was captured.")
+        return None, None
     
-    tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+    if not merged_file1 or not merged_file2:
+        print(f"Error: One of the merged files is empty for paths: {inputFilePathp}, {inputFilePathf}")
+        return None, None
 
     df1 = list_to_dataframe(merged_file1)
     df2 = list_to_dataframe(merged_file2)
-
+    
     # java_code 컬럼에 대한 총 토큰 개수 계산
     total_tokens_df1 = calculate_total_tokens(df1, 'java_code')
     total_tokens_df2 = calculate_total_tokens(df2, 'java_code')
-
+    
     if total_tokens_df1 < 512 and total_tokens_df2 < 512:
+        different_indexes = compare_df_find_index(df1, df2)
+        # lightweight df에서 buggy line에 <bug>토큰 붙이기
+        for index in different_indexes:
+            df1.at[index, 'java_code'] = f"<bug>{df1.at[index, 'java_code']}</bug>"
+            
         lwbm = ''.join(df1['java_code']).replace('\n', '')
         lwfm = ''.join(df2['java_code']).replace('\n', '')
-
+        
     else:
         different_indexes = compare_df_find_index(df1, df2)
-
         total_tokens_diff_df1 = count_tokens_at_indexes(df1, different_indexes)
         total_tokens_diff_df2 = count_tokens_at_indexes(df2, different_indexes)
         total_bug_tokens = max(total_tokens_diff_df1, total_tokens_diff_df2)
@@ -254,7 +270,6 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
         df_combined = pd.concat([df1, int_scores_df, dis_scores_df], axis=1)
 
         sum_scores = {}
-
         dis_keys = sorted(dis_scores.keys())
         int_keys = sorted(int_scores.keys())
 
@@ -278,7 +293,24 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
 
         df_combined['total_scores'] = total_scores
 
+        print("Starting the loop")
+        max_iterations = 1000  # 최대 반복 횟수 설정
+        iteration_count = 0  # 현재 반복 횟수
+        
+        time_limit = 30  # 예: 60초 제한
+        start_time = time.time()  # 시작 시간 기록
+
         while True:
+            iteration_count += 1
+            current_time = time.time()
+    
+            if current_time - start_time > time_limit:
+                print(f"Time limit reached ({time_limit} seconds), breaking the loop.")
+                break
+    
+            if iteration_count > max_iterations:
+                print(f"Max iterations reached ({max_iterations}), breaking the loop.")
+                break
         #가장 낮은 점수 확인 후 그 행 제거
             min_total_score_index = df_combined['total_scores'].idxmin()
             df_combined = df_combined.drop(min_total_score_index)
@@ -312,7 +344,8 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
 
         lwbm = ''.join(df_combined['java_code']).replace('\n', '')
         lwfm = ''.join(filtered_df2['java_code']).replace('\n', '')
-
+        
+    print("successfully created lwbm and lwfm")  # 성공 메시지 출력
     return lwbm, lwfm
 # #추후 파일이름으로 저장될수있도록 하기
 # with open('lwbm.txt', 'w', encoding='utf-8') as file:
@@ -321,54 +354,147 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
 #     file.write(lwfm)
 # Set the root directory where the files are located
 
-def get_related_fdir_path(f_dir_path):
-    """Convert an F_dir path to its corresponding P_dir path."""
-    return f_dir_path.replace("F_dir", "P_dir", 1)
+# def get_related_fdir_path(p_dir_path):
+#     """ Convert a P_dir path to its corresponding F_dir path. """
+#     # Replace only the 'P_dir' part of the path with 'F_dir'
+#     return p_dir_path.replace("P_dir", "F_dir", 1)
 
-def save_comparison_result(file_name, lwbm, lwfm, lwresult_dir):
-    """Save the comparison result to files in the lwresult directory."""
-    # Create the output file paths
-    output_p_path = os.path.join(lwresult_dir, f"{file_name}_P.txt")
-    output_f_path = os.path.join(lwresult_dir, f"{file_name}_F.txt")
+def findpath_and_save(root_directory, lwresult_directory, state):
+    """ Traverse directories, process file paths, and save results to txt files. """
     
-    # Save lwbm content to the corresponding _P.txt file
-    with open(output_p_path, 'w', encoding='utf-8') as file:
-        file.write(lwbm)
-    
-    # Save lwfm content to the corresponding _F.txt file
-    with open(output_f_path, 'w', encoding='utf-8') as file:
-        file.write(lwfm)
-    
-    print(f"Comparison results saved to {output_p_path} and {output_f_path}")
+    # Ensure the lwresult_directory exists
+    if not os.path.exists(lwresult_directory):
+        os.makedirs(lwresult_directory)
 
-def find_file_pairs_and_save(root_dir, lwresult_dir):
-    """Traverse directories, find file pairs, and save comparison results."""
-    for root, dirs, files in os.walk(root_dir):
-        for file_name in files:
+    path_pairs = {}  # Dictionary to store paths of P_dir and F_dir files
+    errors = []  # List to store error information
+
+    print("Starting directory walk...")
+
+    # Traverse the directory structure and process files in real-time
+    files_to_process = [(root, file_name) for root, _, files in os.walk(root_directory) for file_name in files]
+    print(f"Found {len(files_to_process)} files to process.")
+
+    pair_count = state.get("pair_count", 0)  # Counter for pair folders, loaded from state
+
+    try:
+        for index, (root, file_name) in enumerate(tqdm(files_to_process, initial=state.get("current_index", 0), total=len(files_to_process), desc="Processing files")):
+            # 이전에 처리된 파일들은 건너뛰기
+            if index < state.get("current_index", 0):
+                continue
+
             full_path = os.path.join(root, file_name)
-            if "F_dir" in full_path:
-                # Compute the corresponding P_dir path
-                related_p_dir_path = get_related_fdir_path(full_path)
-                if os.path.exists(related_p_dir_path):
-                    # Generate lwbm and lwfm using the lightweight method
-                    lwbm, lwfm = LightweightProcess(related_p_dir_path, full_path)
+            
+            if 'P_dir' in full_path:
+                if file_name not in path_pairs:
+                    path_pairs[file_name] = {}
+                path_pairs[file_name]['P_dir'] = full_path
+            elif 'F_dir' in full_path:
+                if file_name not in path_pairs:
+                    path_pairs[file_name] = {}
+                path_pairs[file_name]['F_dir'] = full_path
+
+            # Once a pair is found, process it immediately
+            paths = path_pairs.get(file_name, {})
+            full_path_p = paths.get('P_dir')
+            full_path_f = paths.get('F_dir')
+
+            if full_path_p and full_path_f:  # Ensure both paths are available
+                try:
+                    result_p, result_f = LightweightProcess(full_path_p, full_path_f)
+
+                    if result_p is not None and result_f is not None:
+                        pair_count += 1
+                        pair_folder = os.path.join(lwresult_directory, f"pair_{pair_count}")
+                        os.makedirs(pair_folder, exist_ok=True)
+
+                        p_file_name = f"{file_name}_P.txt"
+                        p_file_path = os.path.join(pair_folder, p_file_name)
+                        with open(p_file_path, 'w', encoding='utf-8') as p_file:
+                            p_file.write(result_p)
+
+                        f_file_name = f"{file_name}_F.txt"
+                        f_file_path = os.path.join(pair_folder, f_file_name)
+                        with open(f_file_path, 'w', encoding='utf-8') as f_file:
+                            f_file.write(result_f)
+
+                        # Remove the processed pair from path_pairs to free memory
+                        del path_pairs[file_name]
+                    else:
+                        raise ValueError("Result is None")
+                except Exception as e:
+                    # Record the error and paths
+                    print(f"Error processing pair {file_name}: {e}")
+                    error_info = {
+                        "error": str(e),
+                        "P_dir_path": full_path_p,
+                        "F_dir_path": full_path_f
+                    }
+                    errors.append(error_info)
+
+            # 상태 업데이트 후 저장
+            state["current_index"] = index + 1
+            state["pair_count"] = pair_count
+            save_state(state)
+
+    except KeyboardInterrupt:
+        print("\nExecution was interrupted. Saving state...")
+        save_state(state)
+        print(f"State saved. You can resume from file index {state['current_index']}.")
+
+    # Save errors to a JSON file
+    if errors:
+        error_file_path = os.path.join(lwresult_directory, "errors.json")
+        with open(error_file_path, 'w', encoding='utf-8') as error_file:
+            json.dump(errors, error_file, indent=4)
+    
+    print("Processing complete.")
+    
+def save_state(state, filename='checkpoint.json'):
+    """현재 상태를 파일에 저장합니다."""
+    with open(filename, 'w') as f:
+        json.dump(state, f)
+
+def load_state(filename='checkpoint.json'):
+    """이전 상태를 파일에서 불러옵니다."""
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            return json.load(f)
+    else:
+        return None
                     
-                    # Save the comparison result to lwresult directory
-                    save_comparison_result(file_name.split('.')[0], lwbm, lwfm, lwresult_dir)
-                else:
-                    print(f"No corresponding P_dir file found for: {full_path}")
-                    print(f"Expected P_dir path: {related_p_dir_path}")
-
-
+                    
 if __name__ == "__main__":
+    tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
     # Set the root directory where the files are located
-    root_directory = "C:\\Users\\UOS\\Desktop\\sciclone\\data10\\mtufano\\deepLearningMutants\\out\\bugfixes\\code\\"
+    root_directory = "/home/selab/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/"
     
     # Set the output directory for the comparison results
-    lwresult_directory = "C:\\Users\\UOS\\Desktop\\lwresult"
+    lwresult_directory = "/home/selab/lwresult"
     
     # Ensure the lwresult directory exists
-    os.makedirs(lwresult_directory, exist_ok=True)
+
     
     # Find file pairs and save comparison results
-    find_file_pairs_and_save(root_directory, lwresult_directory)
+    
+    
+
+    # Call the function to find file pairs and print the paths
+    # find_file_pairs(root_directory)
+    # inputFilePathp = "/home/selab/bugs2fix/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d/P_dir/NotificationPeekPort/src/main/java/com/reindeercrafts/notificationpeek/peek/NotificationPeekActivity.java"
+    # inputFilePathf = "/home/selab/bugs2fix/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d/F_dir/NotificationPeekPort/src/main/java/com/reindeercrafts/notificationpeek/peek/NotificationPeekActivity.java"
+    # LightweightProcess(inputFilePathp, inputFilePathf)
+    
+    # findpath_and_save(root_directory,lwresult_directory)
+    # print('hello world')
+
+    # 이전 상태 로드
+    state = load_state()
+    if state is None:
+        state = {
+            "current_index": 0,
+            "pair_count": 0
+        }
+
+    # findpath_and_save 실행
+    findpath_and_save(root_directory, lwresult_directory, state)
