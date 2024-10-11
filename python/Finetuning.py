@@ -168,9 +168,9 @@ def main():
     parser.add_argument("--max_source_length", default=512, type=int, help="The maximum total source sequence length after tokenization. Sequences longer than this will be truncated, sequences shorter will be padded.")
     parser.add_argument("--max_target_length", default=512, type=int, help="The maximum total target sequence length after tokenization. Sequences longer than this will be truncated, sequences shorter will be padded.")
     
-    parser.add_argument("--do_train", action='store_true', help="Whether to run training.")
-    parser.add_argument("--do_eval", action='store_true', help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='store_true', help="Whether to run eval on the dev set.")
+    parser.add_argument("--do_train", action='False', help="Whether to run training.")
+    parser.add_argument("--do_eval", action='False', help="Whether to run eval on the dev set.")
+    parser.add_argument("--do_test", action='True', help="Whether to run eval on the dev set.")
     parser.add_argument("--do_lower_case", action='store_true', help="Set this flag if you are using an uncased model.")
     parser.add_argument("--no_cuda", action='store_true', help="Avoid using CUDA when available") 
     
