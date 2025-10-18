@@ -16,5 +16,5 @@ JIPS paper
 ## Related Publication
 |YEAR|Paper|ETC|PDF|
 |-----|--------------------------------------------------------------------------------|---------|----------------------|
-|2025|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM|KCC 2025 |[PDF](papers/APR.pdf)|
+|2025|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM|KCC 2025 |[PDF](papers/APR1.pdf)|
 |-----|--------------------------------------------------------------------------------|---------|----------------------|
