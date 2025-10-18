@@ -16,5 +16,6 @@ JIPS paper
 ## Related Publication
 |YEAR|Paper|ETC|PDF|
 |-----|--------------------------------------------------------------------------------|---------|----------------------|
-|2025|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM|KCC 2025 |[PDF](papers/APR1.pdf)|
-|-----|--------------------------------------------------------------------------------|---------|----------------------|
+|2025|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM|KCC 2025|[PDF](papers/APR1.pdf)|
+|    |(LLM의 입력 길이 제한 조건 하에서 패치 경량화와 문맥 활용 기법)(KOR)              |         |                     |    
+|1014|--------------------------------------------------------------------------------|---------|----------------------|
