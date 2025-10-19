@@ -46,7 +46,7 @@ More detailed information about the ***Correctly fixed Code*** is available [her
 <img width="700" height="175" alt="image" src="https://github.com/user-attachments/assets/62f5d9b1-ba0c-46a2-95fa-2606cc696379" />
 <br><br>
 
-#### File Structure
+## 📁File Structure
 ```
 java
 |--OverallProcess1.java
@@ -57,6 +57,7 @@ python
 - java: preprocessing java files
 - python
 - results
+<br><br>
 
 ## 📄 Related Publication
 |Year|Title|Venue|File|
