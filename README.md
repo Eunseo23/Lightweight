@@ -12,9 +12,9 @@ JIPS paper
 ## 1. Overall Architecture
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
 
-##### Two Main Phases
-- **Learning**  --  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
-- **Generation** -- The fine-tuned LLM generates candidate patches.
+#### Two Main Phases
+- **Learning**  -  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
+- **Generation** - The fine-tuned LLM generates candidate patches, followed by patch optimization and patch validation.
 
 ## 2. Patch Lightweight
 
