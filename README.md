@@ -52,11 +52,12 @@ java
 |--OverallProcess1.java
 |----Patch Lightweight.py
 python
-|-
+
 ```
-- java: preprocessing java files
-- python
-- results
+- java: Preprocessing java files
+- python: Code preprocessing / Fine-tuning LLM / Generation / Reconstruction / Validation
+    - For Patch Optimization, code is available [here](https://github.com/Aslan7197/enhancedPatchOptimization)
+- results : Experiment results with CodeBERT & CodeLlama-7b
 <br><br>
 
 ## 📄 Related Publication
