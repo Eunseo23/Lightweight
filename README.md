@@ -1,5 +1,8 @@
 # An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair
 
+This repository contains the code, model, and results of the paper "An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair".
+
+File Structure:
 ```
 JIPS paper
 |---OverallProcess1.java
@@ -8,6 +11,8 @@ JIPS paper
 
 ## 1. Overall Architecture
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
+1.Learning
+2.Generation
 
 ## 2. Patch Lightweight
 
@@ -16,7 +21,7 @@ JIPS paper
 ### 3.1 
 
 ## Related Publication
-|YEAR|Title|Venue|File|
+|Year|Title|Venue|File|
 |-----|----------------------------------------------------------------------|---------|----------------------|
 |TBA| An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair(Eng)|JIPS| |
 |2025.08|Enhancing Automated Program Repair using Patch Lightweighting and Context Information<br>(패치 경량화와 문맥 정보를 활용한 프로그램 자동 정정 개선 (KOR)|Journal of KIISE|[PDF](papers/APR2.pdf)| 
