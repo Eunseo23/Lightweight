@@ -1,6 +1,6 @@
-# An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair
+# An Empirical Study on Token Efficient Code for Enhancing LLM-based Automated Program Repair
 
-This repository contains the code, model, and results of the paper "An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair".
+This repository contains the code, model, and results of the paper "An Empirical Study on Token Efficient Code for Enhancing LLM-based Automated Program Repair".
 
 ## 1. Overall Architecture
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
