@@ -16,6 +16,7 @@ JIPS paper
 - **Learning**  -  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
 - **Generation** - The fine-tuned LLM generates candidate patches, followed by patch optimization and patch validation.
 
+
 ## 2. Patch Lightweight
 
 |Before Lightweight|After Lightweight|
