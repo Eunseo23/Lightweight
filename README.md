@@ -17,7 +17,7 @@ JIPS paper
 
 ## Related Publication
 |YEAR|Title|Venue|File|
-|-----|--------------------------------------------------------------------------|---------|----------------------|
+|-----|----------------------------------------------------------------------|---------|----------------------|
 |TBA| An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair(Eng)|JIPS| |
 |2025.08|Enhancing Automated Program Repair using Patch Lightweighting and Context Information<br>(패치 경량화와 문맥 정보를 활용한 프로그램 자동 정정 개선 (KOR)|Journal of KIISE|[PDF](papers/APR2.pdf)| 
 |2025.07|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM<br>(LLM의 입력 길이 제한 조건 하에서 패치 경량화와 문맥 활용 기법) (KOR)|KCC2025|[PDF](papers/APR1.pdf)|    
