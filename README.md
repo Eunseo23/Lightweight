@@ -15,7 +15,7 @@ JIPS paper
 #### Two Main Phases
 - **Learning**  -  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
 - **Generation** - The fine-tuned LLM generates candidate patches, followed by patch optimization and patch validation.
-<br><br>
+<br>
 
 ## 2. Patch Lightweight
 
