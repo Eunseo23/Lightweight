@@ -11,6 +11,7 @@ JIPS paper
 
 ## 1. Overall Architecture
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
+
 1.Learning
 2.Generation
 
