@@ -17,6 +17,9 @@ JIPS paper
 
 ## Related Publication
 |YEAR|Title|Venue|File|
-|-----|--------------------------------------------------------------------------------|---------|----------------------|
-|2025|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM<br>(LLM의 입력 길이 제한 조건 하에서 패치 경량화와 문맥 활용 기법) (KOR)|KCC2025|[PDF](papers/APR1.pdf)|        
-|2024|paper2|KSC2024|[PDF]|
+|-----|--------------------------------------------------------------------------|---------|----------------------|
+|TBA| An Empirical Study on Token Efficient Methods for Enhancing LLM-based Automated Program Repair(Eng)|JIPS| |
+|2025.08|Enhancing Automated Program Repair using Patch Lightweighting and Context Information<br>(패치 경량화와 문맥 정보를 활용한 프로그램 자동 정정 개선 (KOR)|Journal of KIISE|[PDF](papers/APR2.pdf)| 
+|2025.07|Leveraging Patch Lightweighting and Context under Constraint of Input Size of LLM<br>(LLM의 입력 길이 제한 조건 하에서 패치 경량화와 문맥 활용 기법) (KOR)|KCC2025|[PDF](papers/APR1.pdf)|    
+|2024.12|Utilizing Patch Lightweighting and Reconstruction to Handle Token Length Issues in LLM based Automatic Program Repair<br>(LLM 기반 프로그램 자동 정정에서 토큰 길이 문제 처리를 위한 패치 경량화와 복원 활용) (KOR)|KSC2024|[PDF](papers/APR3.pdf)| 
+|2024.06|Towards Effectively Resolving Token Length Limits of LLM Models for Automatic Program Repair<br>(프로그램 자동 정정을 위한 LLM 모델의 효과적인 토큰 길이 제한 해결 기법(Eng)|KCC2024|[PDF](papers/APR4.pdf)|
