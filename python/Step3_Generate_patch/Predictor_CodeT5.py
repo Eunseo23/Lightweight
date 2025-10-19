@@ -26,46 +26,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 model.eval()
 
-# 2. 예측 함수 (unique 500개 추출하기)
-# def predict_unique_variants(input_code: str, desired_unique: int = 500, batch_size: int = 100, max_length: int = 512):
-#     prefix = "fix: "
-#     input_text = prefix + input_code
-#     inputs = tokenizer(input_text, return_tensors="pt", truncation=True, padding=True, max_length=max_length).to(device)
-
-#     unique_outputs = set()
-#     tries = 0
-
-#     while len(unique_outputs) < desired_unique and tries < 20:  # 최대 20번 반복
-#         outputs = model.generate(
-#             **inputs,
-#             do_sample=True,
-#             top_k=50,
-#             top_p=0.95,
-#             temperature=0.9,
-#             repetition_penalty=1.2,
-#             num_return_sequences=batch_size,
-#             max_length=max_length,
-#         )
-#         #모델 출력 디코딩 skip_special_tokens=False로 해야 <bug1>태그 붙어서 결과 출력
-#         decoded = tokenizer.batch_decode(outputs, skip_special_tokens=False)
-#         # 보고 싶은 토큰만 남기기
-#         allowed_tags = {f"<bug{i}>" for i in range(1, 33)} | {"<bug>", "</bug>"} 
-#         cleaned = []
-
-#         for line in decoded:
-#             tokens = line.split()
-#             filtered = [tok for tok in tokens if tok in allowed_tags or not tok.startswith("<")]
-#             cleaned.append(" ".join(filtered))
-
-
-#         unique_outputs.update([o.strip() for o in cleaned])
-#         tries += 1
-#         print(f"🔁 {tries}회차 생성 | 고유 결과 수: {len(unique_outputs)}")
-
-#     return list(unique_outputs)[:desired_unique]  # 딱 500개만 잘라서 반환
-
-
-##########################################################################################
 def predict_unique_variants(input_code: str, batch_size: int = 100, max_length: int = 512):
     prefix = "fix: "
     input_text = prefix + input_code

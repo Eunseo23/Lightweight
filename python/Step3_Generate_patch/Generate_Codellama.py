@@ -49,28 +49,7 @@ def load_codellama_lora_model(model_path):
         print(f"❌ 모델 로딩 중 오류 발생: {e}")
         return None, None
 
-# ====== 예측 함수 ======
-# def trim_after_bug(pred: str, lwbm: str) -> str:
-#     """
-#     예측 결과에서 <bug>...</bug> 이후 <context> 이전까지만 남김.
-#     """
-#     # </bug> 와 <context> 사이 텍스트 추출
-#     post_bug_match = re.search(r"</bug>(.*?)<context>", lwbm, re.DOTALL)
-#     if not post_bug_match:
-#         return pred.strip()
-
-#     post_bug_code = post_bug_match.group(1).strip()
-    
-#     if not post_bug_code:
-#         # 사이에 아무 코드 없으면 잘라낼 게 없음
-#         return pred.strip()
-
-#     if post_bug_code in pred:
-#         pred = pred.split(post_bug_code, 1)[0] + post_bug_code
-
-#     return pred.strip()
-
-def generate_single_prediction(pair, model, tokenizer, device, max_new_tokens=512, total=10, chunk_size=10, diversity_penalty=1.3):
+def generate_single_prediction(pair, model, tokenizer, device, max_new_tokens=512, total=10, chunk_size=10, diversity_penalty=1.1):
     # prefix_prompt = ""
     buggy_code = pair["lwbm"]
     
@@ -93,16 +72,11 @@ def generate_single_prediction(pair, model, tokenizer, device, max_new_tokens=51
             outputs = model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                # ↓ 여기부터 추가된 옵션
                 num_beams=chunk_size,
                 num_beam_groups=chunk_size,
                 diversity_penalty=diversity_penalty,
                 num_return_sequences=chunk_size,
-                # ↑ 추가 끝
-                # num_beams=chunk_size,                # 🔁 빔의 개수 설정 (예: 5개 빔)
-                # num_return_sequences=chunk_size,     # 🔁 최종으로 반환할 시퀀스 개수 (ex. top 10)
                 early_stopping=True,         # ✔️ 빔 모두 EOS 만나면 멈춤
-                # early_stopping=False,
                 max_new_tokens=max_new_tokens,
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
@@ -129,10 +103,6 @@ def generate_single_prediction(pair, model, tokenizer, device, max_new_tokens=51
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True
             )
-
-            # for pred in decoded_outputs:
-            #     # clean_pred = trim_after_bug(pred, buggy_code)
-            #     all_predictions.add(pred.strip())
 
             for pred in decoded_outputs:
                 trimmed = pred.strip()

@@ -1,6 +1,6 @@
 # An Empirical Study on Token Efficient Code for Enhancing LLM-based Automated Program Repair
 
-This repository contains the code, model, and results of the paper "An Empirical Study on Token Efficient Code for Enhancing LLM-based Automated Program Repair".
+This repository contains the source code, and results of the paper "An Empirical Study on Token Efficient Code for Enhancing LLM-based Automated Program Repair".
 
 ## 1. Overall Architecture
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
@@ -49,15 +49,43 @@ More detailed information about the ***Correctly fixed Code*** is available [her
 ## 📁File Structure
 ```
 java
+|--ExtractBuggyMethod.java
+|--JavaParserStatement.java
+|--JavaToTextwithLine.java
 |--OverallProcess1.java
-|----Patch Lightweight.py
+|--OverallProcess2.java
+|--RemoveComments.java
 python
-
+|--model (CodeBERT)
+|--Step0_Extract_Dataset
+|----ChunksToOneLine.py
+|--Step1_Dataset_modify
+|----Lightweight.py (under500)
+|----Lightweight_1000.py (under1000)
+|----NoLightweight.py
+|--Step2_Finetuning_model
+|----Finetuning_CodeBERT.py
+|----Finetuning_Codellama7b.py
+|----Finetuning_CodeT5.py
+|----Visualize_traininglog.py
+|--Step3_Generate_patch
+|----Generate_CodeBERT.py
+|----Generate_Codellama.py
+|----Predictor_CodeT5.py
+|--Step4_Reconstruction
+|----Patch_Reconstruction_llama.py
+|----Patch_Reconstruction_save.py
+|--Step5_Validation
+|----Validation.py
+results
+|--CodeBERT_result.md
+|--CodeLlama_result.md
+|--Overall_result.md
 ```
 - java: Preprocessing java files
 - python: Code preprocessing / Fine-tuning LLM / Generation / Reconstruction / Validation
     - For Patch Optimization, code is available [here](https://github.com/Aslan7197/enhancedPatchOptimization)
-- results : Experiment results with CodeBERT & CodeLlama-7b
+- results : Experiment results with CodeBERT & CodeLlama-7b & Overall
 <br><br>
 
 ## 📄 Related Publication

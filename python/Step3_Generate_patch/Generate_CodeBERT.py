@@ -25,7 +25,7 @@ def load_model_and_tokenizer():
         encoder=encoder,
         decoder=decoder,
         config=config,
-        beam_size=200,  # ✅ beam size 100으로 설정
+        beam_size=100,  # ✅ beam size 100으로 설정
         max_length=512,
         sos_id=tokenizer.cls_token_id,
         eos_id=tokenizer.sep_token_id,
@@ -68,7 +68,7 @@ def generate_single_prediction(text, model, tokenizer, device):
         decoded = tokenizer.decode(tokens, clean_up_tokenization_spaces=True).strip()
         predictions.append(decoded)
 
-    return predictions[100:200]  # ✅ beam 후보 전체 리스트 반환
+    return predictions[:]  # ✅ beam 후보 전체 리스트 반환
 
 # ====== JSON 처리 및 예측 저장 ======
 def process_json_file(json_path, model, tokenizer):
