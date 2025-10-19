@@ -16,8 +16,8 @@ public class JavaToTextwithLine {
 
     public static void main(String[] args) {
         // 파일 경로 설정
-        String inputFilePathp = "C:\\Users\\UOS\\Desktop\\sciclone\\data10\\mtufano\\deepLearningMutants\\out\\bugfixes\\code\\0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d\\P_dir\\NotificationPeekPort\\src\\main\\java\\com\\reindeercrafts\\notificationpeek\\peek\\NotificationPeekActivity.java"; // 첫 번째 파일
-        String inputFilePathf = "C:\\Users\\UOS\\Desktop\\sciclone\\data10\\mtufano\\deepLearningMutants\\out\\bugfixes\\code\\0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d\\F_dir\\NotificationPeekPort\\src\\main\\java\\com\\reindeercrafts\\notificationpeek\\peek\\NotificationPeekActivity.java"; // 두 번째 파일
+        String inputFilePathp = "C:\\Users\\UOS\\Desktop\\data\\p_dir\\NotificationService.java"; // 첫 번째 파일
+        String inputFilePathf = "C:\\Users\\UOS\\Desktop\\data\\f_dir\\NotificationService.java"; // 두 번째 파일
         String finalOriginalTextFilePath = "OriginalMethods.txt";
         String finalRevisedTextFilePath = "RevisedMethods.txt";
 

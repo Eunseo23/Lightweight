@@ -1,7 +1,9 @@
 from __future__ import absolute_import
 import os
 import sys
-from python.model.bleu import bleu
+from model.bleu import *
+from EarlyStopping import *
+import model.bleu
 import pickle
 import torch
 import json
@@ -12,8 +14,10 @@ import numpy as np
 from io import open
 from itertools import cycle
 import torch.nn as nn
-from python.model.model import Seq2Seq
+from model.model import Seq2Seq
 from tqdm import tqdm, trange
+from datetime import datetime
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
@@ -21,16 +25,115 @@ from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
 
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer)}
 
-logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                    datefmt = '%m/%d/%Y %H:%M:%S',
-                    level = logging.INFO)
+
+
+
 logger = logging.getLogger(__name__)
+
+# timestamp = datetime.now().strftime('%m%d-%H%M')
 
 class Example:
     def __init__(self, idx, source, target):
         self.idx = idx
         self.source = source
         self.target = target
+
+def read_examples(directory):
+    examples = []
+    
+    # # lwresult 폴더 처리
+    # lwresult_dir = os.path.join(directory, "lwresult")
+    # if os.path.isdir(lwresult_dir):
+    #     pair_num = 1
+    #     while True:
+    #         pair_dir = os.path.join(lwresult_dir, f"pair_{pair_num}")
+    #         if not os.path.isdir(pair_dir):
+    #             break  # 존재하지 않으면 종료
+            
+    #         source_files = [f for f in os.listdir(pair_dir) if f.endswith('_P.txt')]
+    #         target_files = [f for f in os.listdir(pair_dir) if f.endswith('_F.txt')]
+            
+    #         for source_file, target_file in zip(source_files, target_files):
+    #             source_path = os.path.join(pair_dir, source_file)
+    #             target_path = os.path.join(pair_dir, target_file)
+                
+    #             with open(source_path, encoding="utf-8") as sf, open(target_path, encoding="utf-8") as tf:
+    #                 source_lines = sf.readlines()
+    #                 target_lines = tf.readlines()
+                    
+    #                 for idx, (source_line, target_line) in enumerate(zip(source_lines, target_lines)):
+    #                     examples.append(
+    #                         Example(
+    #                             idx=len(examples),
+    #                             source=source_line.strip(),
+    #                             target=target_line.strip()
+    #                         )
+    #                     )
+            
+    #         pair_num += 1
+    
+    # # lwpairs 폴더 처리
+    # lwpairs_dir = os.path.join(directory, "lwpairs")
+    # if os.path.isdir(lwpairs_dir):
+    #     for json_file in os.listdir(lwpairs_dir):
+    #         if not json_file.endswith('.json'):
+    #             continue
+            
+    #         json_path = os.path.join(lwpairs_dir, json_file)
+    #         with open(json_path, encoding="utf-8") as f:
+    #             data = json.load(f)
+            
+    #         if isinstance(data, dict):  # 첫 번째 JSON 형식
+    #             for file_name, content in data.items():
+    #                 p_key = f"{file_name}.java_P"
+    #                 f_key = f"{file_name}.java_F"
+    #                 if p_key in content and f_key in content:
+    #                     examples.append(Example(idx=len(examples), source=content[p_key], target=content[f_key]))
+            
+    #         elif isinstance(data, list):  # 두 번째 JSON 형식
+    #             for entry in data:
+    #                 if "file_name" in entry:
+    #                     file_name = entry["file_name"]
+    #                     p_key = f"{file_name}_P"
+    #                     f_key = f"{file_name}_F"
+    #                     if p_key in entry and f_key in entry:
+    #                         examples.append(Example(idx=len(examples), source=entry[p_key], target=entry[f_key]))
+    
+    # return examples
+
+# def read_examples(json_directory):
+#     """Read examples from JSON files in the directory."""
+#     examples = []
+    
+#     # 디렉토리 내의 모든 JSON 파일 읽기
+#     for json_file in os.listdir(json_directory):
+#         if not json_file.endswith('.json'):
+#             continue  # JSON 파일이 아니면 스킵
+
+#         json_path = os.path.join(json_directory, json_file)
+#         print(f'{json_path}')
+#         with open(json_path, encoding="utf-8") as f:
+#             data = json.load(f)
+
+#         # 첫 번째 JSON 형식 (딕셔너리 구조)
+#         if isinstance(data, dict):
+#             for file_name, content in data.items():
+#                 p_key = f"{file_name}.java_P"
+#                 f_key = f"{file_name}.java_F"
+#                 if p_key in content and f_key in content:
+#                     examples.append(Example(idx=len(examples), source=content[p_key], target=content[f_key]))
+
+#         # 두 번째 JSON 형식 (리스트 구조)
+#         elif isinstance(data, list):
+#             for entry in data:
+#                 if "file_name" in entry:
+#                     file_name = entry["file_name"]
+#                     p_key = f"{file_name}_P"
+#                     f_key = f"{file_name}_F"
+#                     if p_key in entry and f_key in entry:
+#                         examples.append(Example(idx=len(examples), source=entry[p_key], target=entry[f_key]))
+
+#     return examples
 
 def read_examples(directory_path):
     """Read examples from source and target files in directory."""
@@ -117,17 +220,6 @@ def convert_examples_to_features(examples, tokenizer, args, stage=None):
         padding_length = args.max_target_length - len(target_ids)
         target_ids += [tokenizer.pad_token_id] * padding_length  # 패딩 추가
         target_mask += [0] * padding_length
-
-        # 로깅 (학습 시, 처음 5개 예시만)
-        if example_index < 5 and stage == 'train':
-            print("*** Example ***")
-            print(f"idx: {example.idx}")
-            print(f"source_tokens: {source_tokens}")
-            print(f"source_ids: {source_ids}")
-            print(f"source_mask: {source_mask}")
-            print(f"target_tokens: {target_tokens}")
-            print(f"target_ids: {target_ids}")
-            print(f"target_mask: {target_mask}")
        
         # InputFeatures 객체에 저장
         features.append(
@@ -151,11 +243,11 @@ def set_seed(args):
 
 def main():
     parser = argparse.ArgumentParser()
-
+    
     ## Required parameters  
-    parser.add_argument("--model_type", default="roberta", type=str, required=True, help="Model type: e.g. roberta")
-    parser.add_argument("--model_name_or_path", default="microsoft/roberta-base", type=str, required=True, help="Path to pre-trained model: e.g. roberta-base" )   
-    parser.add_argument("--output_dir", default=None, type=str, required=True, help="The output directory where the model predictions and checkpoints will be written.")
+    parser.add_argument("--model_type", default="roberta", type=str, help="Model type: e.g. roberta")
+    parser.add_argument("--model_name_or_path", default="microsoft/codebert-base", type=str, help="Path to pre-trained model: e.g. roberta-base" )   
+    parser.add_argument("--output_dir", default="./output", type=str, help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--load_model_path", default=None, type=str, help="Path to trained model: Should contain the .bin files" )    
     
     ## Other parameters
@@ -168,9 +260,9 @@ def main():
     parser.add_argument("--max_source_length", default=512, type=int, help="The maximum total source sequence length after tokenization. Sequences longer than this will be truncated, sequences shorter will be padded.")
     parser.add_argument("--max_target_length", default=512, type=int, help="The maximum total target sequence length after tokenization. Sequences longer than this will be truncated, sequences shorter will be padded.")
     
-    parser.add_argument("--do_train", action='False', help="Whether to run training.")
-    parser.add_argument("--do_eval", action='False', help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='True', help="Whether to run eval on the dev set.")
+    parser.add_argument("--do_train", default=True, help="Whether to run training.")
+    parser.add_argument("--do_eval", default=True, help="Whether to run eval on the dev set.")
+    parser.add_argument("--do_test", action='store_true', help="Whether to run eval on the dev set.")
     parser.add_argument("--do_lower_case", action='store_true', help="Set this flag if you are using an uncased model.")
     parser.add_argument("--no_cuda", action='store_true', help="Avoid using CUDA when available") 
     
@@ -182,19 +274,41 @@ def main():
     parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight deay if we apply some.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform.")
+    parser.add_argument("--num_train_epochs", default=5.0, type=float, help="Total number of training epochs to perform.")
     parser.add_argument("--max_steps", default=-1, type=int, help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
     parser.add_argument("--eval_steps", default=5000, type=int, help="")
-    parser.add_argument("--train_steps", default=150000, type=int, help="")
+    # parser.add_argument("--eval_steps", default=1000, type=int, help="")
+    parser.add_argument("--train_steps", default=100000, type=int, help="")
+    # parser.add_argument("--train_steps", default=30000, type=int, help="")
     parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")   
     parser.add_argument('--seed', type=int, default=42, help="random seed for initialization")
     # print arguments
     args = parser.parse_args()
-    args.train_filename = "result/dataset"
-    logger.info(args)
+    args.train_filename = "/home/selab/Desktop/bug2fix_dataset/lightweightdataset"#################
+    args.dev_filename = ""
+    
+    # 로그 디렉토리 설정
+    log_dir = os.path.join(args.output_dir, "logs")
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
-    train_filename = "/path/to/your/dataset"
+    # 로그 파일 이름 설정
+    log_filename = os.path.join(log_dir, f"finetuning_log.log")
+
+    # 로그 설정
+    timestamp = datetime.now().strftime('%m%d-%H%M')
+    logging.basicConfig(handlers=[
+                        logging.FileHandler(log_filename),  # 파일로 로그 저장
+                        logging.StreamHandler()],  # 콘솔에 로그 출력
+                        format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO)
+
+    # args 내용을 로그로 출력
+    logger = logging.getLogger()
+    logger.info(args)
+    
 
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
@@ -220,14 +334,29 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,do_lower_case=args.do_lower_case)
+    #add new tokens
+    new_tokens = ["<bug>","</bug>","<context>","</context>","<fix>","</fix>"]
+    num_added_tokens = tokenizer.add_tokens(new_tokens)
     
     #build model
     encoder = model_class.from_pretrained(args.model_name_or_path,config=config)    
+    #change embedding size with new tokens
+    if num_added_tokens > 0 :
+        encoder.resize_token_embeddings(len(tokenizer))
+
+        # Initialize new token embeddings properly
+        model_emb = encoder.get_input_embeddings()
+        with torch.no_grad():
+            # Xavier Uniform initialization ensures better weight distribution
+            model_emb.weight[-num_added_tokens:] = torch.nn.init.xavier_uniform_(torch.empty(num_added_tokens, config.hidden_size))
+
+
     decoder_layer = nn.TransformerDecoderLayer(d_model=config.hidden_size, nhead=config.num_attention_heads)
     decoder = nn.TransformerDecoder(decoder_layer, num_layers=6)
     model=Seq2Seq(encoder=encoder,decoder=decoder,config=config,
                   beam_size=args.beam_size,max_length=args.max_target_length,
                   sos_id=tokenizer.cls_token_id,eos_id=tokenizer.sep_token_id)
+    
     if args.load_model_path is not None:
         logger.info("reload model from {}".format(args.load_model_path))
         model.load_state_dict(torch.load(args.load_model_path))
@@ -236,7 +365,7 @@ def main():
     if args.local_rank != -1:
         # Distributed training
         try:
-            from apex.parallel import DistributedDataParallel as DDP
+            from torch.nn.parallel import DistributedDataParallel as DDP
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training.")
 
@@ -248,7 +377,10 @@ def main():
     if args.do_train:
         # Prepare training data loader
         train_examples = read_examples(args.train_filename)
+        train_examples, eval_examples = train_test_split(train_examples, test_size=0.25, random_state=42)
+
         train_features = convert_examples_to_features(train_examples, tokenizer,args,stage='train')
+
         all_source_ids = torch.tensor([f.source_ids for f in train_features], dtype=torch.long)
         all_source_mask = torch.tensor([f.source_mask for f in train_features], dtype=torch.long)
         all_target_ids = torch.tensor([f.target_ids for f in train_features], dtype=torch.long)
@@ -321,7 +453,7 @@ def main():
                 if 'dev_loss' in dev_dataset:
                     eval_examples,eval_data=dev_dataset['dev_loss']
                 else:
-                    eval_examples = read_examples(args.dev_filename)
+                    # eval_examples = read_examples(args.dev_filename)
                     eval_features = convert_examples_to_features(eval_examples, tokenizer, args,stage='dev')
                     all_source_ids = torch.tensor([f.source_ids for f in eval_features], dtype=torch.long)
                     all_source_mask = torch.tensor([f.source_mask for f in eval_features], dtype=torch.long)
@@ -357,32 +489,52 @@ def main():
                 for key in sorted(result.keys()):
                     logger.info("  %s = %s", key, str(result[key]))
                 logger.info("  "+"*"*20)   
-                
+                timestamp = datetime.now().strftime('%m%d-%H%M')
                 #save last checkpoint
-                last_output_dir = os.path.join(args.output_dir, 'checkpoint-last')
+                last_output_dir = os.path.join(args.output_dir, f'checkpoint-last-{timestamp}')
                 if not os.path.exists(last_output_dir):
                     os.makedirs(last_output_dir)
-                model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-                output_model_file = os.path.join(last_output_dir, "pytorch_model.bin")
-                torch.save(model_to_save.state_dict(), output_model_file)                    
+                try:     
+                    model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
+                    output_model_file = os.path.join(last_output_dir,  f"pytorch_model_{timestamp}.bin")
+                    torch.save(model_to_save.state_dict(), output_model_file)
+                    logger.info(f"Model successfully saved at {output_model_file}")
+                except Exception as e:
+                    logger.error(f"Error saving model at {output_model_file}: {e}")                    
+                
+                # Early Stopping 인스턴스 생성 (patience 설정 가능)
+                early_stopping = EarlyStopping(patience=3, min_delta=0.001)
+
+
                 if eval_loss<best_loss:
                     logger.info("  Best ppl:%s",round(np.exp(eval_loss),5))
                     logger.info("  "+"*"*20)
                     best_loss=eval_loss
                     # Save best checkpoint for best ppl
-                    output_dir = os.path.join(args.output_dir, 'checkpoint-best-ppl')
+                    output_dir = os.path.join(args.output_dir, f'checkpoint-best-ppl-{timestamp}')
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-                    output_model_file = os.path.join(output_dir, "pytorch_model.bin")
-                    torch.save(model_to_save.state_dict(), output_model_file)  
-                            
+                    try:     
+                        model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
+                        output_model_file = os.path.join(output_dir, f"pytorch_model_{timestamp}.bin")
+                        torch.save(model_to_save.state_dict(), output_model_file)
+                        logger.info(f"Model successfully saved at {output_model_file}")
+                    except Exception as e:
+                        logger.error(f"Error saving model at {output_model_file}: {e}")     
+                
+                #만약 validation loss가 더 개선되지 않으면 학습 중단
+                # ✅ Early Stopping 체크 추가
+                if early_stopping(eval_loss):
+                    logger.info("Early stopping triggered. Stopping training.")
+                    break  # 학습 중단
+
                             
                 #Calculate bleu  
+                """
                 if 'dev_bleu' in dev_dataset:
                     eval_examples,eval_data=dev_dataset['dev_bleu']
                 else:
-                    eval_examples = read_examples(args.dev_filename)
+                    # eval_examples = read_examples(args.dev_filename)
                     eval_examples = random.sample(eval_examples,min(1000,len(eval_examples)))
                     eval_features = convert_examples_to_features(eval_examples, tokenizer, args,stage='test')
                     all_source_ids = torch.tensor([f.source_ids for f in eval_features], dtype=torch.long)
@@ -424,28 +576,37 @@ def main():
                     logger.info("  "+"*"*20)
                     best_bleu=dev_bleu
                     # Save best checkpoint for best bleu
-                    output_dir = os.path.join(args.output_dir, 'checkpoint-best-bleu')
+                    output_dir = os.path.join(args.output_dir, f'checkpoint-best-bleu-{timestamp}')
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
                     model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-                    output_model_file = os.path.join(output_dir, "pytorch_model.bin")
+                    output_model_file = os.path.join(output_dir, f"pytorch_model_{timestamp}.bin")
                     torch.save(model_to_save.state_dict(), output_model_file)
+                    """
                
     if args.do_test:
         files=[]
-        if args.dev_filename is not None:
-            files.append(args.dev_filename)
+        if eval_examples is not None:
+            files.append("eval_examples")
         if args.test_filename is not None:
             files.append(args.test_filename)
-        for idx,file in enumerate(files):   
-            logger.info("Test file: {}".format(file))
-            eval_examples = read_examples(file)
-            eval_features = convert_examples_to_features(eval_examples, tokenizer, args,stage='test')
+
+        for idx,file in enumerate(files):
+            if files == "eval_examples":   
+                logger.info("Test file: eval_examples (in-memory data)")
+                # eval_examples = read_examples(file)
+                eval_features = convert_examples_to_features(eval_examples, tokenizer, args,stage='test')
+            else:
+                logger.info("Test file: {}".format(file))
+                eval_examples = read_examples(file)
+                eval_features = convert_examples_to_features(eval_examples, tokenizer, args,stage='test')
+            
             all_source_ids = torch.tensor([f.source_ids for f in eval_features], dtype=torch.long)
             all_source_mask = torch.tensor([f.source_mask for f in eval_features], dtype=torch.long)    
             eval_data = TensorDataset(all_source_ids,all_source_mask)   
 
             # Calculate bleu
+            """
             eval_sampler = SequentialSampler(eval_data)
             eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
@@ -474,7 +635,8 @@ def main():
             (goldMap, predictionMap) = bleu.computeMaps(predictions, os.path.join(args.output_dir, "test_{}.gold".format(idx))) 
             dev_bleu=round(bleu.bleuFromMaps(goldMap, predictionMap)[0],2)
             logger.info("  %s = %s "%("bleu-4",str(dev_bleu)))
-            logger.info("  "+"*"*20)    
+            logger.info("  "+"*"*20)
+            """    
                 
 if __name__ == "__main__":
     main()

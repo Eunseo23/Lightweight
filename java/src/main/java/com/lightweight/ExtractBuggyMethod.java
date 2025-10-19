@@ -5,7 +5,9 @@ import java.io.IOException;
 // import java.nio.file.Paths;
 // import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.github.difflib.DiffUtils;
@@ -53,24 +55,28 @@ public class ExtractBuggyMethod {
         private static List<String> extractModifiedMethods(Patch<String> patch, List<String> lines) {
             List<String> modifiedMethods = new ArrayList<>();
             Pattern methodPattern = Pattern.compile("^[\\w\\s<>\\[\\]]+\\s+\\w+\\s*\\([^\\)]*\\)\\s*\\{?");
-            
+            Map<Integer, Integer> processedMethods = new HashMap<>();
+
             for (AbstractDelta<String> delta : patch.getDeltas()) {
                 int startLine = delta.getTarget().getPosition();
                 int methodStart = findMethodStart(lines, startLine, methodPattern);
-                if (methodStart == -1) {
-                    // 메서드 시작을 찾지 못한 경우, 해당 델타를 무시
-                    continue;
-                }
-                
+                if (methodStart == -1) continue;
+
                 int methodEnd = findMethodEnd(lines, methodStart);
-                if (methodEnd != -1) {
-                    // Method body 추출 및 List에 추가 (인덴트 제거)
-                    List<String> methodLines = lines.subList(methodStart, methodEnd + 1);
-                    modifiedMethods.addAll(methodLines);
-                    modifiedMethods.add("");  // 메서드 간의 공백 줄 추가
+                if (methodEnd == -1) continue;
+
+                if (!processedMethods.containsKey(methodStart) || processedMethods.get(methodStart) < methodEnd) {
+                    processedMethods.put(methodStart, methodEnd);
                 }
             }
-        
+
+            for (Map.Entry<Integer, Integer> entry : processedMethods.entrySet()) {
+                int start = entry.getKey();
+                int end = entry.getValue();
+                modifiedMethods.addAll(lines.subList(start, end + 1));
+                modifiedMethods.add("");
+            }
+
             return modifiedMethods;
         }
     
@@ -101,6 +107,4 @@ public class ExtractBuggyMethod {
             }
             return lines.size() - 1;
         }
-    
-    
     }

@@ -4,14 +4,11 @@
 import torch
 import torch.nn as nn
 import torch
-from torch.autograd import Variable
-import copy
+
 class Seq2Seq(nn.Module):
     """
         Build Seqence-to-Sequence.
-        
-        Parameters:
-
+        import logging
         * `encoder`- encoder of seq2seq model. e.g. roberta
         * `decoder`- decoder of seq2seq model. e.g. transformer
         * `config`- configuration of encoder model. 
@@ -37,7 +34,7 @@ class Seq2Seq(nn.Module):
         self.eos_id=eos_id
         
     def _tie_or_clone_weights(self, first_module, second_module):
-        """ Tie or clone module weights depending of whether we are using TorchScript or not
+        """ Tie or clone module weights depending of weither we are using TorchScript or not
         """
         if self.config.torchscript:
             first_module.weight = nn.Parameter(second_module.weight.clone())
@@ -73,8 +70,9 @@ class Seq2Seq(nn.Module):
             return outputs
         else:
             #Predict 
-            preds=[]       
-            zero = torch.tensor([0], dtype=torch.long, device='cuda') 
+            preds=[]   
+            logits=[]      
+            zero=torch.cuda.LongTensor(1).fill_(0)
             for i in range(source_ids.shape[0]):
                 context=encoder_output[:,i:i+1]
                 context_mask=source_mask[i:i+1,:]
@@ -91,16 +89,28 @@ class Seq2Seq(nn.Module):
                     out = torch.tanh(self.dense(out))
                     hidden_states=out.permute([1,0,2]).contiguous()[:,-1,:]
                     out = self.lsm(self.lm_head(hidden_states)).data
+                    # print(out)
                     beam.advance(out)
                     input_ids.data.copy_(input_ids.data.index_select(0, beam.getCurrentOrigin()))
                     input_ids=torch.cat((input_ids,beam.getCurrentState()),-1)
-                hyp= beam.getHyp(beam.getFinal())
-                pred=beam.buildTargetTokens(hyp)[:self.beam_size]
-                pred=[torch.cat([x.view(-1) for x in p]+[zero]*(self.max_length-len(p))).view(1,-1) for p in pred]
-                preds.append(torch.cat(pred,0).unsqueeze(0))
+                final = beam.getFinal()
+                hyp, logit = beam.getHyp(final)
                 
-            preds=torch.cat(preds,0)                
-            return preds   
+                pred=beam.buildTargetTokens(hyp)[:self.beam_size]
+
+                # print([torch.cat([x.view(-1) for x in p]).view(1,-1) for p in pred])
+                pred=[torch.cat([x.view(-1) for x in p]+[zero]*(self.max_length-len(p))).view(1,-1) for p in pred]
+                
+                # print(pred)
+                # print(len(logit))
+                # print(len(hyp))
+                logits.append(logit)
+                preds.append(torch.cat(pred,0).unsqueeze(0))
+            
+            # print(preds)
+            # print(logits)
+            preds=torch.cat(preds,0)
+            return pred
         
         
 
@@ -162,7 +172,8 @@ class Beam(object):
 
         # bestScoresId is flattened beam x word array, so calculate which
         # word and beam each score came from
-        prevK = bestScoresId // numWords
+        # prevK = bestScoresId // numWords
+        prevK = torch.div(bestScoresId, numWords, rounding_mode="floor")
         self.prevKs.append(prevK)
         self.nextYs.append((bestScoresId - prevK * numWords))
 
@@ -198,13 +209,17 @@ class Beam(object):
         Walk back to construct the full hypothesis.
         """
         hyps=[]
-        for _,timestep, k in beam_res:
+        logs=[]
+        # print(len(beam_res))
+        for score, timestep, k in beam_res:
             hyp = []
+            # print("{} : {}".format(k, score))
+            logs.append(score)
             for j in range(len(self.prevKs[:timestep]) - 1, -1, -1):
                 hyp.append(self.nextYs[j+1][k])
                 k = self.prevKs[j][k]
             hyps.append(hyp[::-1])
-        return hyps
+        return hyps, logs
     
     def buildTargetTokens(self, preds):
         sentence=[]
@@ -216,3 +231,4 @@ class Beam(object):
                 tokens.append(tok)
             sentence.append(tokens)
         return sentence
+        

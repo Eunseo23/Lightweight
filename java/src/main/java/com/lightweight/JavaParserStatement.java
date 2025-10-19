@@ -46,7 +46,7 @@ public class JavaParserStatement {
         try {
             JavaParser parser = new JavaParser();
             CompilationUnit cu = parser.parse(code).getResult().orElseThrow();
-            // System.out.println("Parsed CompilationUnit:\n" + cu.toString());
+
             // Modify the code to ensure each expression statement ends with a semicolon
             cu.accept(new VoidVisitorAdapter<Void>() {
                 @Override

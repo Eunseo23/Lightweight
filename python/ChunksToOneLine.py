@@ -13,7 +13,7 @@ def run_java_program(input_file_path_p, input_file_path_f):
     java_class = "com.lightweight.OverallProcess1"
     
     # 필요한 모든 JAR 파일들을 포함한 클래스패스 설정
-    classpath = "/home/selab/Lightweight-main/java/target/classes" + os.pathsep + "/home/selab/Lightweight-main/java/target/dependency/*"
+    classpath = "./Lightweight-main/java/target/classes" + os.pathsep + "./Lightweight-main/java/target/dependency/*"
     
     # Java 프로그램 실행 명령어
     command = [
@@ -196,8 +196,6 @@ def intersection_score(line_identifiers, target_identifiers):
     return intersection_count / target_identifier_count if target_identifier_count != 0 else 0
 
 def LightweightProcess(inputFilePathp, inputFilePathf):
-    # inputFilePathp = "C:/Users/UOS/Desktop/data/p_dir/NotificationService.java"
-    # inputFilePathf = "C:/Users/UOS/Desktop/data/f_dir/NotificationService.java"
 
     # Java 프로그램 실행 및 출력 가져오기
     print(f"Processing P_dir: {inputFilePathp}")
@@ -347,17 +345,7 @@ def LightweightProcess(inputFilePathp, inputFilePathf):
         
     print("successfully created lwbm and lwfm")  # 성공 메시지 출력
     return lwbm, lwfm
-# #추후 파일이름으로 저장될수있도록 하기
-# with open('lwbm.txt', 'w', encoding='utf-8') as file:
-#     file.write(lwbm)
-# with open('lwfm.txt', 'w', encoding='utf-8') as file:
-#     file.write(lwfm)
-# Set the root directory where the files are located
 
-# def get_related_fdir_path(p_dir_path):
-#     """ Convert a P_dir path to its corresponding F_dir path. """
-#     # Replace only the 'P_dir' part of the path with 'F_dir'
-#     return p_dir_path.replace("P_dir", "F_dir", 1)
 
 def findpath_and_save(root_directory, lwresult_directory, state):
     """ Traverse directories, process file paths, and save results to txt files. """
@@ -467,26 +455,11 @@ def load_state(filename='checkpoint.json'):
 if __name__ == "__main__":
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
     # Set the root directory where the files are located
-    root_directory = "/home/selab/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/"
+    root_directory = "./sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/"
     
     # Set the output directory for the comparison results
     lwresult_directory = "/home/selab/lwresult"
-    
-    # Ensure the lwresult directory exists
 
-    
-    # Find file pairs and save comparison results
-    
-    
-
-    # Call the function to find file pairs and print the paths
-    # find_file_pairs(root_directory)
-    # inputFilePathp = "/home/selab/bugs2fix/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d/P_dir/NotificationPeekPort/src/main/java/com/reindeercrafts/notificationpeek/peek/NotificationPeekActivity.java"
-    # inputFilePathf = "/home/selab/bugs2fix/sciclone/data10/mtufano/deepLearningMutants/out/bugfixes/code/0a0a3d16e4a7db8edd75d8c9dd9b7bf2ec5d129d/F_dir/NotificationPeekPort/src/main/java/com/reindeercrafts/notificationpeek/peek/NotificationPeekActivity.java"
-    # LightweightProcess(inputFilePathp, inputFilePathf)
-    
-    # findpath_and_save(root_directory,lwresult_directory)
-    # print('hello world')
 
     # 이전 상태 로드
     state = load_state()

@@ -3,27 +3,26 @@ import re
 import difflib
 import pandas as pd
 import os
+import json
+import shutil
+from transformers import RobertaTokenizer
 
-def compare_files_to_dataframe(candidate_patch_line, buggy_method_file):
-    # buggy_method_file의 내용을 읽기
-    with open(buggy_method_file, 'r', encoding='utf-8') as bm_file:
-        buggy_method_content = bm_file.read().strip()
-
+def compare_files_to_dataframe(candidate_patch_line, buggy_method_code_str):
     # <bug>와 </bug>를 고유한 알파벳 조합으로 대체하는 함수
     def process_content(content):
         # <bug>와 </bug>를 각각 $~$와 $~~$로 대체
         content = re.sub(r'<bug>', '$~$', content)
         content = re.sub(r'</bug>', '$~~$', content)
 
-        # <omit>과 </omit>을 각각 $$~$$와 $$~~$$로 대체
+        # <omit>과 </omit>을 각각 ~\$~ 와 ~\$\$~로 대체
         content = re.sub(r'<omit>', '~$~', content)
         content = re.sub(r'</omit>', '~$$~', content)
 
-        return content
+        return content.strip()
 
-    # <bug>와 </bug>를 각각 고유한 토큰으로 대체한 후 비교
+    # 문자열을 전처리
     candidate_patch_line = process_content(candidate_patch_line)
-    buggy_method_content = process_content(buggy_method_content)
+    buggy_method_content = process_content(buggy_method_code_str)
 
     # 두 파일의 내용 비교
     data = []
@@ -199,8 +198,8 @@ def compare_files_to_dataframe(candidate_patch_line, buggy_method_file):
             lightweight[idx] = df.at[idx, 'Candidate Patch Line'] + ' $~~$ $~$'
 
     # 최종적으로 lightweight에 있는 $~$와 $~~$를 <bug>와 </bug>로 변환
-    lightweight = [re.sub(r'\$~\$', '<bug>', item) for item in lightweight]
-    lightweight = [re.sub(r'\$~~\$', '</bug>', item) for item in lightweight]
+    lightweight = [re.sub(r'\$~\$', '<bug> ', item) for item in lightweight]
+    lightweight = [re.sub(r'\$~~\$', ' </bug>', item) for item in lightweight]
 
     # lightweight 컬럼 추가
     df['lightweight'] = lightweight
@@ -211,118 +210,255 @@ def compare_files_to_dataframe(candidate_patch_line, buggy_method_file):
     # DataFrame 반환
     return df
 
-def count_and_extract_bug_blocks(line, tag='bug'):
-    return [(m.start(), m.end()) for m in re.finditer(fr'<{tag}>.*?</{tag}>', line)]
 
-def process_files_and_update(lightweight_candidate_patch_file, original_buggy_method_file, output_file):
-    with open(original_buggy_method_file, 'r', encoding='utf-8') as obm_file:
-        obm_line = obm_file.readline().strip()
+def apply_patch_to_original(lightweight_patch: str, original_buggy_method: str) -> str:
+    def extract_tag_blocks(text, tag='bug'):
+        return [(m.start(), m.end()) for m in re.finditer(fr'<{tag}>.*?</{tag}>', text)]
 
-    with open(output_file, 'w') as output:
-        with open(lightweight_candidate_patch_file, 'r', encoding='utf-8') as lcp_file:
-            lcp_lines = lcp_file.readlines()
+    def extract_tag_contents(text, tag='bug'):
+        return [m.group(1) for m in re.finditer(fr'<{tag}>(.*?)</{tag}>', text, flags=re.DOTALL)]
 
-        for i in range(min(500, len(lcp_lines))):
-            lcp_line = lcp_lines[i].strip()
+    obm = original_buggy_method
+    lcp = lightweight_patch
 
-            obm_bug_blocks = count_and_extract_bug_blocks(obm_line, 'bug')
-            lcp_bug_blocks = count_and_extract_bug_blocks(lcp_line, 'bug')
+    obm_bug_blocks = extract_tag_blocks(obm, 'bug')
+    lcp_bug_contents = extract_tag_contents(lcp, 'bug')
 
-            obm_omit_blocks = count_and_extract_bug_blocks(obm_line, 'omit')
-            lcp_omit_blocks = count_and_extract_bug_blocks(lcp_line, 'omit')
+    obm_omit_blocks = extract_tag_blocks(obm, 'omit')
+    lcp_omit_contents = extract_tag_contents(lcp, 'omit')
 
-            if len(obm_bug_blocks) == len(lcp_bug_blocks) and len(obm_omit_blocks) == len(lcp_omit_blocks):
-                updated_obm_line = obm_line
-                offset = 0
+    if len(obm_bug_blocks) == len(lcp_bug_contents) and len(obm_omit_blocks) == len(lcp_omit_contents):
+        updated = obm
+        offset = 0
 
-                for (obm_start_idx, obm_end_idx), (lcp_start_idx, lcp_end_idx) in zip(obm_bug_blocks, lcp_bug_blocks):
-                    replacement = lcp_line[lcp_start_idx:lcp_end_idx]
-                    updated_obm_line = updated_obm_line[:obm_start_idx + offset] + replacement + updated_obm_line[obm_end_idx + offset:]
-                    offset += len(replacement) - (obm_end_idx - obm_start_idx)
+        # bug 블록 교체
+        for (obm_start, obm_end), replacement in zip(obm_bug_blocks, lcp_bug_contents):
+            replacement_with_tags = f"<bug>{replacement}</bug>"
+            updated = updated[:obm_start + offset] + replacement_with_tags + updated[obm_end + offset:]
+            offset += len(replacement_with_tags) - (obm_end - obm_start)
 
-                for (obm_start_idx, obm_end_idx), (lcp_start_idx, lcp_end_idx) in zip(obm_omit_blocks, lcp_omit_blocks):
-                    replacement = lcp_line[lcp_start_idx:lcp_end_idx]
-                    updated_obm_line = updated_obm_line[:obm_start_idx + offset] + replacement + updated_obm_line[obm_end_idx + offset:]
-                    offset += len(replacement) - (obm_end_idx - obm_start_idx)
+        # omit 블록 교체
+        for (obm_start, obm_end), replacement in zip(obm_omit_blocks, lcp_omit_contents):
+            replacement_with_tags = f"<omit>{replacement}</omit>"
+            updated = updated[:obm_start + offset] + replacement_with_tags + updated[obm_end + offset:]
+            offset += len(replacement_with_tags) - (obm_end - obm_start)
 
-                updated_obm_line = re.sub(r'<bug>|</bug>|<omit>|</omit>', '', updated_obm_line)
-                output.write(updated_obm_line + '\n')
-            else:
-                output.write(obm_line + '\n')
+        # ✅ 태그 제거 시 공백으로 대체
+        updated = re.sub(r'\s*</?(bug|omit)>\s*', ' ', updated)
 
-def process_folder(folder_path):
-    # 각 파일을 저장할 변수
-    lightweight_buggy_methods = []
-    original_buggy_methods = []
-    candidate_patches_buggy_blocks = []
+        # ✅ 연속된 공백은 하나로 줄임
+        updated = re.sub(r'\s{2,}', ' ', updated)
 
-    # 숫자 추출 함수
-    def extract_number(filename):
-        match = re.search(r'(\d+)', filename)  # 파일명에서 숫자 추출
-        return match.group(1) if match else None
+        return updated.strip()
+    else:
+        return obm
 
-    # 폴더 내 파일들 확인
+# ✅ RobertaTokenizer 초기화
+tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+
+def get_token_count(text):
+    return len(tokenizer.tokenize(text))
+
+def process_json_folder(base_dir, target_folder):
+    folder_path = os.path.join(base_dir, target_folder)
+
+    json_file = None
+    original_buggy_file = None
+
+    # 파일 탐색
     for filename in os.listdir(folder_path):
-        if filename.startswith('Lightweight_buggy_method'):
-            lightweight_buggy_methods.append(os.path.join(folder_path, filename))
-        elif filename.startswith('Original_buggy_method') and 'by_line' not in filename:
-            original_buggy_methods.append(os.path.join(folder_path, filename))
-        elif filename.startswith('candidate_patches_buggy_block'):
-            candidate_patches_buggy_blocks.append(os.path.join(folder_path, filename))
+        if filename.startswith("Lightweight_buggy_method_Context") and "diff" not in filename and "codellama" not in filename and filename.endswith(".json"):
+        # if filename.startswith("Lightweight_buggy_method_Context") and "diff" not in filename and filename.endswith(".json"):
+            json_file = os.path.join(folder_path, filename)
+        elif filename.startswith("Original_buggy_method") and "by_line" not in filename and filename.endswith(".txt"):
+            original_buggy_file = os.path.join(folder_path, filename) 
 
-    # 각 파일 쌍 확인 및 처리
-    for lightweight_buggy_method in lightweight_buggy_methods:
-        lw_number = extract_number(os.path.basename(lightweight_buggy_method))
-
-        # 같은 숫자의 Original_buggy_method와 candidate_patches_buggy_block 파일 찾기
-        original_buggy_method = next((obm for obm in original_buggy_methods if extract_number(os.path.basename(obm)) == lw_number), None)
-        candidate_patches_buggy_block = next((cpb for cpb in candidate_patches_buggy_blocks if extract_number(os.path.basename(cpb)) == lw_number), None)
-
-        # 세 파일 모두 존재하는지 확인
-        if lightweight_buggy_method and original_buggy_method and candidate_patches_buggy_block:
-            output_suffix = f"{lw_number}" if lw_number else ""
-            lightweight_candidate_patch_file = os.path.join(folder_path, f"Lightweight_candidate_patches{output_suffix}.txt")
-            original_candidate_patches_file = os.path.join(folder_path, f"Original_candidate_patches{output_suffix}.txt")
-
-            # 경로 출력 및 처리 시작
-            print(f"Processing files with number {lw_number} in folder: {folder_path}")
-            compare_files_and_process(lightweight_buggy_method, candidate_patches_buggy_block, original_buggy_method, lightweight_candidate_patch_file, original_candidate_patches_file)
-        else:
-            print(f"Matching files for number {lw_number} are missing in {folder_path}")
-
-def process_all_folders(base_directory):
-    if not os.path.exists(base_directory):
-        print(f"Error: {base_directory} does not exist.")
+    if not json_file or not original_buggy_file:
+        print(f"[ERROR] 필요한 파일이 {folder_path}에 없습니다.")
         return
 
-    print(f"Processing base directory: {base_directory}")
-    for folder_name in os.listdir(base_directory):
-        folder_path = os.path.join(base_directory, folder_name)
-        if os.path.isdir(folder_path) and folder_name.startswith('Chart_'):
-            process_folder(folder_path)
+    # ✅ 토큰 수 체크
+    with open(original_buggy_file, 'r', encoding='utf-8') as f:
+        original_buggy_method_text = f.read()
 
-def compare_files_and_process(lightweight_buggy_method, candidate_patches_buggy_block, original_buggy_method, output_lightweight_file, output_original_file):
-    with open(candidate_patches_buggy_block, 'r', encoding='utf-8') as cp_file:
-        lines = cp_file.readlines()
-        lightweight_candidate_patches = []
+    token_count = get_token_count(original_buggy_method_text)
+    if token_count < 200:                                          ###############################################
+        print(f"[SKIP] {target_folder} → 토큰 수 {token_count} < 200")
+        return    
 
-        for i in range(min(500, len(lines))):
-            candidate_patch_line = lines[i].strip()
-            df = compare_files_to_dataframe(candidate_patch_line, lightweight_buggy_method)
+    print(f"[INFO] 처리 시작: {json_file}")
 
-            lightweight_candidate_patch = ''.join(df['lightweight'].apply(lambda x: x.replace('\n', '')))
-            lightweight_candidate_patches.append(lightweight_candidate_patch)
+    with open(json_file, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
 
-    with open(output_lightweight_file, 'w', encoding='utf-8') as file:
-        file.write('\n'.join(lightweight_candidate_patches))
+    chart_key = list(json_data.keys())[0]
+    items = json_data[chart_key]
 
-    process_files_and_update(output_lightweight_file, original_buggy_method, output_original_file)
+    # 저장 파일명: Lightweight → Original로 교체
+    output_json_filename = os.path.basename(json_file).replace(
+        "Lightweight_buggy_method_Context", "Original_candidate_patch"
+    )
+    output_json_path = os.path.join(folder_path, output_json_filename)
 
+    # original buggy method 텍스트 전체 로딩
+    with open(original_buggy_file, 'r', encoding='utf-8') as f:
+        original_buggy_method_text = f.read()
+
+    for item in items:
+        buggy_code = item.get("lwbm", "")
+        buggy_code = re.sub(r"<context>.*?</context>", "", buggy_code, flags=re.DOTALL)
+
+        lwcp_block = item.get("lwcp", None)
+        if not lwcp_block:
+            print(f"[WARNING] id={item.get('id')} 에 lwcp 없음. 건너뜀.")
+            continue
+
+        for key in sorted(lwcp_block.keys(), key=lambda k: int(k.replace('lwcp', ''))):
+            candidate_patch = lwcp_block[key]
+
+            # Step 1: lightweight 결과 생성
+            df = compare_files_to_dataframe(candidate_patch, buggy_code)
+            lightweight_patch = ''.join(df['lightweight'].apply(lambda x: x.replace('\n', '')))
+
+            # Step 2: original 결과 생성
+            final_patch = apply_patch_to_original(lightweight_patch, original_buggy_method_text)
+
+            lwcp_block[key] = final_patch
+
+        # ✅ 최종 필터링: <bug> 또는 </bug> 포함된 항목 제거
+        filtered_lwcp = {}
+        seen_values = set()
+
+        for key in sorted(lwcp_block.keys(), key=lambda k: int(k.replace("lwcp", ""))):
+            val = lwcp_block[key]
+
+            # <bug> 태그가 포함되어 있으면 스킵
+            if '<bug>' in val or '</bug>' in val:
+                continue
+
+            # 중복 값이면 스킵
+            if val in seen_values:
+                continue
+
+            # 유일한 값만 추가
+            filtered_lwcp[key] = val
+            seen_values.add(val)
+
+        item["lwcp"] = filtered_lwcp
+
+    # 결과 저장
+    with open(output_json_path, 'w', encoding='utf-8') as f:
+        json.dump(json_data, f, indent=2)
+
+    print(f"[DONE] 저장 완료: {output_json_path}")
+    
+def process_json_file(json_file_path, original_buggy_file_path):
+    if not os.path.exists(json_file_path) or not os.path.exists(original_buggy_file_path):
+        print(f"[ERROR] 파일 경로가 존재하지 않습니다.")
+        return
+
+    with open(original_buggy_file_path, 'r', encoding='utf-8') as f:
+        original_buggy_method_text = f.read()
+
+    token_count = get_token_count(original_buggy_method_text)
+    if token_count < 200:                                        ###############################################
+        print(f"[SKIP] {original_buggy_file_path} → 토큰 수 {token_count} < 200")
+        return
+
+    print(f"[INFO] 처리 시작: {json_file_path}")
+
+    with open(json_file_path, 'r', encoding='utf-8') as f:
+        json_data = json.load(f)
+
+    chart_key = list(json_data.keys())[0]
+    items = json_data[chart_key]
+
+    output_json_filename = os.path.basename(json_file_path).replace(
+        "Lightweight_buggy_method_Context", "Original_candidate_patch"
+    )
+    output_json_path = os.path.join(os.path.dirname(json_file_path), output_json_filename)
+
+    for item in items:
+        buggy_code = item.get("lwbm", "")
+        buggy_code = re.sub(r"<context>.*?</context>", "", buggy_code, flags=re.DOTALL)
+
+        lwcp_block = item.get("lwcp", None)
+        if not lwcp_block:
+            print(f"[WARNING] id={item.get('id')} 에 lwcp 없음. 건너뜀.")
+            continue
+
+        for key in sorted(lwcp_block.keys(), key=lambda k: int(k.replace('lwcp', ''))):
+            candidate_patch = lwcp_block[key]
+            df = compare_files_to_dataframe(candidate_patch, buggy_code)
+            lightweight_patch = ''.join(df['lightweight'].apply(lambda x: x.replace('\n', '')))
+            final_patch = apply_patch_to_original(lightweight_patch, original_buggy_method_text)
+            lwcp_block[key] = final_patch
+
+        item["lwcp"] = {k: v for k, v in lwcp_block.items() if "<bug>" not in v and "</bug>" not in v}
+    
+    value_to_keys = defaultdict(list)
+
+    # 값 → (item, key) 매핑 수집
+    for item in items:
+        for key, val in item.get("lwcp", {}).items():
+            value_to_keys[val].append((item, key))
+
+    # 중복된 값은 모두 제거
+    for val, occurrences in value_to_keys.items():
+        if len(occurrences) > 1:  # 2번 이상 등장하면 중복
+            for item, key in occurrences:
+                if key in item["lwcp"]:
+                    del item["lwcp"][key]
+
+    with open(output_json_path, 'w', encoding='utf-8') as f:
+        json.dump(json_data, f, indent=2)
+
+    print(f"[DONE] 저장 완료: {output_json_path}")
+
+# 🟦 main 함수 추가
 def main():
-    # 전체 폴더 경로 설정 및 함수 실행
-    base_directory = os.path.join("C:\\","Users","UOS","Desktop", "Chart_lightweight")
-    process_all_folders(base_directory)
+    base_dir = "to/your/path"
+    target_folder = "target_folder"
 
-# main 함수 호출
+    target_path = os.path.join(base_dir, target_folder)
+
+    if not os.path.exists(target_path):
+        print(f"[ERROR] 경로가 존재하지 않습니다: {target_path}")
+        return
+
+    # 하위 폴더 순회
+    for subfolder in os.listdir(target_path):
+        subfolder_path = os.path.join(target_folder, subfolder)
+        full_path = os.path.join(base_dir, subfolder_path)
+
+        if not os.path.isdir(full_path):
+            continue
+
+        # ✅ 파일 개수 검사
+        files = os.listdir(full_path)
+        context_files = [
+            f for f in files
+            if f.startswith("Lightweight_buggy_method_Context") and "diff" not in f and "codellama" not in f and f.endswith(".json")
+            # if f.startswith("Lightweight_buggy_method_Context_codellama") and "diff" not in f and f.endswith(".json")
+        ]
+        original_files = [
+            f for f in files
+            if f.startswith("Original_buggy_method") and "by_line" not in f and f.endswith(".txt")
+        ]
+
+        if len(context_files) == 1 and len(original_files) == 1:
+            print(f"\n[INFO] 하위 폴더 처리 시작: {subfolder_path}")
+            process_json_folder(base_dir, subfolder_path)
+        else:
+            print(f"\n[SKIP] {subfolder_path} → 처리하지 않음 (context: {len(context_files)}, original: {len(original_files)})")
+
+            
+# 🟨 실행 조건
 if __name__ == "__main__":
-    main()
+    #전체 폴더 처리할때
+    main() 
+    
+    # #개별 폴더 직접 처리할때
+    # json_path = "to/your/path"
+    # txt_path  = "to/your/path"
+    # process_json_file(json_path, txt_path)
