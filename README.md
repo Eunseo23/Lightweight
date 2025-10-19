@@ -10,7 +10,9 @@ JIPS paper
 ```
 
 ## 1. Overall Architecture
+<p align="center">
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
+</p>
 
 #### Two Main Phases
 - **Learning**  -  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
@@ -22,25 +24,29 @@ JIPS paper
 The buggy method is lightweight based on the relevance score, which is calculated from the distance and similarity scores for each line of the code. Below is an example of the code before and after applying the lightweight algorithm.<br>
 **Before: 100 lines, 917 tokens -> After: 29 lines, 298 tokens**
 <br>
+<p align="center">
 |Before Lightweight|After Lightweight|
 |----|-----|
 |<img width="402" height="211" alt="image" src="https://github.com/user-attachments/assets/cebd7151-bfdc-4a84-9938-22dbd6d23b37" />|<img width="406" height="213" alt="image" src="https://github.com/user-attachments/assets/95346580-85c5-4927-a584-06fb123f96ce" />|
-
+</p>
 
 
 ## 3. Experiment Results
 
 ### 3.1 [Table1] Repair Results on Defects4J and baselines
+<p align="center">
 <img width="700" height="250" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
-
+</p>
 
 ### 3.2 [Table2] Comparison of repair results with and without applying methodology within the token limit
-<img width="608" height="137" alt="image" src="https://github.com/user-attachments/assets/7840d9d5-4057-4543-bb9b-55972d37292f" />
-
+<p align="center">
+<img width="550" height="124" alt="image" src="https://github.com/user-attachments/assets/7840d9d5-4057-4543-bb9b-55972d37292f" />
+</p>
 
 ### 3.3 [Table3] Comparison of repair results with and without lightweighting within the token limit
-<img width="588" height="262" alt="image" src="https://github.com/user-attachments/assets/a354445f-8db0-4e3c-95c3-1f0a219a601c" />
-
+<p align="center">
+<img width="500" height="223" alt="image" src="https://github.com/user-attachments/assets/a354445f-8db0-4e3c-95c3-1f0a219a601c" />
+</p>
 
 ### 3.4 [Table4] Bug Fixing Result under Different Lightweighting Criteria
 <p align="center">
