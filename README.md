@@ -10,9 +10,8 @@ JIPS paper
 ```
 
 ## 1. Overall Architecture
-<p align="center">
 <img width="812" height="283" alt="image" src="https://github.com/user-attachments/assets/6e8bd231-0b0e-4baf-bf74-ceef39dfdcae" />
-</p>
+
 
 #### Two Main Phases
 - **Learning**  -  The LLM learns how to repair buggy code into fixed code and also understands lightweight method structures.
@@ -23,7 +22,7 @@ JIPS paper
 
 The buggy method is lightweight based on the relevance score, which is calculated from the distance and similarity scores for each line of the code. Below is an example of the code before and after applying the lightweight algorithm.<br>
 **Before: 100 lines, 917 tokens -> After: 29 lines, 298 tokens**
-<br>
+<br><br>
 
 |Before Lightweight|After Lightweight|
 |----|-----|
@@ -37,7 +36,7 @@ More detailed information about the ***Correctly fixed Code*** is available [her
 ### 3.1 [Table1] Repair Results on Defects4J and baselines
 
 <img width="700" height="250" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
-<br>
+<br><br>
 
 ### 3.2 [Table2] Comparison of repair results with and without applying methodology within the token limit
 
