@@ -31,7 +31,7 @@ The buggy method is lightweight based on the relevance score, which is calculate
 ## 3. Experiment Results
 
 ### 3.1 [Table1] Repair Results on Defects4J and baselines
-<img width="895" height="320" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
+<img width="700" height="250" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
 
 
 ### 3.2 [Table2] Comparison of repair results with and without applying methodology within the token limit
@@ -43,8 +43,9 @@ The buggy method is lightweight based on the relevance score, which is calculate
 
 
 ### 3.4 [Table4] Bug Fixing Result under Different Lightweighting Criteria
-<img width="944" height="236" alt="image" src="https://github.com/user-attachments/assets/62f5d9b1-ba0c-46a2-95fa-2606cc696379" />
-
+<p align="center">
+<img width="700" height="175" alt="image" src="https://github.com/user-attachments/assets/62f5d9b1-ba0c-46a2-95fa-2606cc696379" />
+</p>
 
 ## Related Publication
 |Year|Title|Venue|File|
