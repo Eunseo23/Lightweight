@@ -18,10 +18,11 @@ JIPS paper
 
 ## 2. Patch Lightweight
 
-
-|<img width="402" height="211" alt="image" src="https://github.com/user-attachments/assets/cebd7151-bfdc-4a84-9938-22dbd6d23b37" />|<img width="406" height="213" alt="image" src="https://github.com/user-attachments/assets/95346580-85c5-4927-a584-06fb123f96ce" />|
-|----|-----|
 |Before Lightweight|After Lightweight|
+|----|-----|
+|<img width="402" height="211" alt="image" src="https://github.com/user-attachments/assets/cebd7151-bfdc-4a84-9938-22dbd6d23b37" />|<img width="406" height="213" alt="image" src="https://github.com/user-attachments/assets/95346580-85c5-4927-a584-06fb123f96ce" />|
+
+
 
 ## 3. Experiment Results
 
