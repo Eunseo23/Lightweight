@@ -20,7 +20,7 @@ JIPS paper
 ## 2. Patch Lightweight
 
 The buggy method is lightweight based on the relevance score, which is calculated from the distance and similarity scores for each line of the code. Below is an example of the code before and after applying the lightweight algorithm.<br>
-Before: 100 lines, 917 tokens --> After: 29 lines, 298 tokens
+**Before: 100 lines, 917 tokens --> After: 29 lines, 298 tokens**
 <br>
 |Before Lightweight|After Lightweight|
 |----|-----|
