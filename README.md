@@ -32,14 +32,14 @@ The buggy method is lightweight based on the relevance score, which is calculate
 
 
 ## 3. Experiment Results
-More detailed information about the correct patch is available [here].
+More detailed information about the ***Correctly fixed Code*** is available [here](./results).
 
-### 3.1 [Table1]. Repair Results on Defects4J and baselines
+### 3.1 [Table1] Repair Results on Defects4J and baselines
 
 <img width="700" height="250" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
 <br>
 
-### 3.2 [Table2]. Comparison of repair results with and without applying methodology within the token limit
+### 3.2 [Table2] Comparison of repair results with and without applying methodology within the token limit
 
 <img width="550" height="124" alt="image" src="https://github.com/user-attachments/assets/7840d9d5-4057-4543-bb9b-55972d37292f" />
 <br>
