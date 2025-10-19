@@ -33,7 +33,7 @@ The buggy method is lightweight based on the relevance score, which is calculate
 
 ## 3. Experiment Results
 
-### 3.1 [Table1] Repair Results on Defects4J and baselines
+#### 3.1 [Table1] Repair Results on Defects4J and baselines
 
 <img width="700" height="250" alt="image" src="https://github.com/user-attachments/assets/c004417c-23b1-4b5a-893d-dfde7c3b2dc4" />
 
